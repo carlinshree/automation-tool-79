@@ -1,41 +1,40 @@
 import os
 from typing import Any, Dict
 
-# Default configuration settings for automation-tool-79
 DEFAULT_CONFIG: Dict[str, Any] = {
     "app_name": "automation-tool-79",
-    "environment": "development",
-    "timeout_seconds": 30,
-    "max_retries": 3,
+    "timeout": 30,
+    "retries": 3,
+    "debug_mode": False,
     "log_level": "INFO",
-    "storage_path": "./data",
 }
 
-
 def load_configuration(override_path: str = None) -> Dict[str, Any]:
-    """Load configuration by merging defaults with environment variables."""
+    """
+    Load configuration with fallback to default values.
+    Reads environment variables if present to override defaults.
+    """
     config = DEFAULT_CONFIG.copy()
-
-    # Override with environment variables if present
+    
+    # Environment variable override mechanism
     for key in config.keys():
-        env_key = f"TOOL_{key.upper()}"
+        env_key = f"AUTO79_{key.upper()}"
         if env_key in os.environ:
             val = os.environ[env_key]
-            # Basic type casting for standard config types
-            if isinstance(config[key], int):
-                val = int(val)
-            elif isinstance(config[key], bool):
-                val = val.lower() in ("true", "1", "yes")
-            config[key] = val
-
-    # Handle direct override path if specified
-    if override_path and os.path.exists(override_path):
-        # Simple key-value file parser placeholder logic
-        with open(override_path, "r") as f:
-            for line in f:
-                if "=" in line and not line.startswith("#"):
-                    k, v = line.strip().split("=", 1)
-                    if k.lower() in config:
-                        config[k.lower()] = v.strip()
-
+            # Basic type casting based on default value type
+            default_val = config[key]
+            if isinstance(default_val, bool):
+                config[key] = val.lower() in ("true", "1", "yes")
+            elif isinstance(default_val, int):
+                try:
+                    config[key] = int(val)
+                except ValueError:
+                    pass
+            else:
+                config[key] = val
+                
     return config
+
+if __name__ == "__main__":
+    cfg = load_configuration()
+    print(f"Loaded config for {cfg['app_name']}")
