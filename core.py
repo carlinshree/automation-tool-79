@@ -1,42 +1,35 @@
+import time
 import logging
-import sys
-from typing import Any, Dict, Optional
+from functools import wraps
+from requests.exceptions import RequestException
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
+logger = logging.getLogger('automation-tool-79')
 
-logger = logging.getLogger("automation-tool-79")
+def retry_operation(retries=3, delay=2, backoff=2):
+    """Decorator to retry network operations with exponential backoff."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            attempt = 0
+            while attempt < retries:
+                try:
+                    return func(*args, **kwargs)
+                except RequestException as e:
+                    attempt += 1
+                    if attempt == retries:
+                        logger.error(f"Operation failed after {retries} attempts: {e}")
+                        raise
+                    logger.warning(f"Attempt {attempt} failed: {e}. Retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-
-class AutomationError(Exception):
-    """Base exception for automation-tool-79 execution errors."""
-    pass
-
-
-def process_payload(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Process input payload with robust error handling for edge cases."""
-    if payload is None:
-        logger.warning("Received null payload, returning empty result structure.")
-        return {"status": "skipped", "data": {}}
-
-    if not isinstance(payload, dict):
-        logger.error(f"Invalid payload type received: {type(payload).__name__}")
-        raise AutomationError(f"Expected dict payload, got {type(payload).__name__}")
-
-    try:
-        target_key = payload.get("action")
-        if not target_key:
-            raise ValueError("Missing required 'action' field in payload")
-            
-        logger.info(f"Successfully processed action: {target_key}")
-        return {"status": "success", "action": target_key, "data": payload.get("data", {})}
-        
-    except ValueError as ve:
-        logger.error(f"Validation error during processing: {ve}")
-        return {"status": "error", "message": str(ve)}
-    except Exception as exc:
-        logger.critical(f"Unexpected error encountered: {exc}", exc_info=True)
-        raise AutomationError(f"Critical failure in process_payload: {exc}") from exc
+@retry_operation(retries=3, delay=1)
+def fetch_data_from_endpoint(url):
+    """Example network operation function."""
+    import requests
+    response = requests.get(url, timeout=5)
+    response.raise_for_status()
+    return response.json()
