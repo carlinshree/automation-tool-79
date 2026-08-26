@@ -1,25 +1,36 @@
 import logging
 from logging.handlers import RotatingFileHandler
+import os
 
-def setup_logger(name, log_file, level=logging.INFO):
-    # Create a logger object
+
+def setup_logger(name: str, log_file: str = "app.log", max_bytes: int = 5 * 1024 * 1024, backup_count: int = 3) -> logging.Logger:
+    """Configure and return a logger with rotating file handler."""
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
+    
+    if logger.handlers:
+        return logger
 
-    # Create a rotating file handler which rotates log files
-    handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=3)
-    handler.setLevel(level)
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
-    # Create a formatter and set it for the handler
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
-    # Add the handler to the logger
-    logger.addHandler(handler)
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=max_bytes, backupCount=backup_count
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     return logger
-
-if __name__ == '__main__':
-    # Example usage
-    logger = setup_logger('my_logger', 'app.log')
-    logger.info('Logger is set up and ready to use!')
