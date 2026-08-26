@@ -1,35 +1,37 @@
 import time
-import logging
-from functools import wraps
-from requests.exceptions import RequestException
+from functools import lru_cache
+from typing import Any, Callable
 
-logger = logging.getLogger('automation-tool-79')
+class PerformanceOptimizer:
+    def __init__(self, cache_size: int = 128) -> None:
+        self.cache_size = cache_size
 
-def retry_operation(retries=3, delay=2, backoff=2):
-    """Decorator to retry network operations with exponential backoff."""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            current_delay = delay
-            attempt = 0
-            while attempt < retries:
-                try:
-                    return func(*args, **kwargs)
-                except RequestException as e:
-                    attempt += 1
-                    if attempt == retries:
-                        logger.error(f"Operation failed after {retries} attempts: {e}")
-                        raise
-                    logger.warning(f"Attempt {attempt} failed: {e}. Retrying in {current_delay}s...")
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-        return wrapper
-    return decorator
+    def memoize_operation(self, func: Callable[..., Any]) -> Callable[..., Any]:
+        """Caches function results to improve execution speed."""
+        cached_func = lru_cache(maxsize=self.cache_size)(func)
+        return cached_func
 
-@retry_operation(retries=3, delay=1)
-def fetch_data_from_endpoint(url):
-    """Example network operation function."""
-    import requests
-    response = requests.get(url, timeout=5)
-    response.raise_for_status()
-    return response.json()
+    def benchmark(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, float]:
+        """Measures execution time of a target function."""
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        return result, execution_time
+
+@lru_cache(maxsize=256)
+def compute_heavy_task(data_factor: int) -> int:
+    """Simulates a computationally expensive core process."""
+    total = 0
+    for i in range(data_factor * 1000):
+        total += i * i
+    return total
+
+def execute_optimized_workflow(factor: int) -> int:
+    optimizer = PerformanceOptimizer()
+    optimized_task = optimizer.memoize_operation(compute_heavy_task)
+    
+    _, duration = optimizer.benchmark(optimized_task, factor)
+    print(f"Execution completed in {duration:.6f} seconds")
+    
+    return optimized_task(factor)
