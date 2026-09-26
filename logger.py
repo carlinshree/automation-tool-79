@@ -1,36 +1,28 @@
 import logging
-from logging.handlers import RotatingFileHandler
 import os
+import sys
 
-
-def setup_logger(name: str, log_file: str = "app.log", max_bytes: int = 5 * 1024 * 1024, backup_count: int = 3) -> logging.Logger:
-    """Configure and return a logger with rotating file handler."""
+def setup_logger(name: str, log_file: str = 'app.log') -> logging.Logger:
+    """Configures a robust logger with file system edge case handling."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    
-    if logger.handlers:
-        return logger
 
-    log_dir = os.path.dirname(log_file)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    try:
+        # Ensure log directory exists
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
 
-    formatter = logging.Formatter(
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+        # Create file handler with basic permission error protection
+        handler = logging.FileHandler(log_file)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
-    file_handler = RotatingFileHandler(
-        log_file, maxBytes=max_bytes, backupCount=backup_count
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.INFO)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.INFO)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    except (PermissionError, OSError) as e:
+        # Fallback to stderr if file logging fails
+        fallback = logging.StreamHandler(sys.stderr)
+        logger.addHandler(fallback)
+        logger.error(f"failed to initialize file logger: {e}. fallback to stderr active.")
 
     return logger
