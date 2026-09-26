@@ -1,40 +1,31 @@
 import os
+import json
 from typing import Any, Dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "app_name": "automation-tool-79",
-    "timeout": 30,
+DEFAULT_CONFIG = {
     "retries": 3,
-    "debug_mode": False,
+    "timeout": 30,
     "log_level": "INFO",
+    "enabled": True
 }
 
-def load_configuration(override_path: str = None) -> Dict[str, Any]:
-    """
-    Load configuration with fallback to default values.
-    Reads environment variables if present to override defaults.
-    """
+def load_config(filepath: str = "config.json") -> Dict[str, Any]:
+    """Load configuration from JSON file with fallback defaults."""
     config = DEFAULT_CONFIG.copy()
     
-    # Environment variable override mechanism
-    for key in config.keys():
-        env_key = f"AUTO79_{key.upper()}"
-        if env_key in os.environ:
-            val = os.environ[env_key]
-            # Basic type casting based on default value type
-            default_val = config[key]
-            if isinstance(default_val, bool):
-                config[key] = val.lower() in ("true", "1", "yes")
-            elif isinstance(default_val, int):
-                try:
-                    config[key] = int(val)
-                except ValueError:
-                    pass
-            else:
-                config[key] = val
-                
+    if not os.path.exists(filepath):
+        return config
+        
+    try:
+        with open(filepath, "r") as f:
+            user_config = json.load(f)
+            config.update(user_config)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Warning: failed to load config file: {e}")
+        
     return config
 
-if __name__ == "__main__":
-    cfg = load_configuration()
-    print(f"Loaded config for {cfg['app_name']}")
+def validate_config(config: Dict[str, Any]) -> bool:
+    """Ensure required configuration keys are present."""
+    required_keys = ["retries", "timeout"]
+    return all(key in config for key in required_keys)
