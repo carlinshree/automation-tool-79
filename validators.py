@@ -1,31 +1,29 @@
-import logging
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Optional
 
-# Configure logger for module diagnostics
-logger = logging.getLogger(__name__)
+class DataValidator:
+    """Utility class for payload schema validation."""
 
-def validate_data_schema(data: Dict[str, Any], required_keys: List[str]) -> bool:
-    """Ensures dictionary contains all mandatory keys and non-null values."""
-    try:
-        for key in required_keys:
-            if key not in data or data[key] is None:
-                logger.warning(f"Missing or null field: {key}")
-                return False
-        return True
-    except TypeError as e:
-        logger.error(f"Invalid data structure provided: {e}")
-        return False
+    EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
-def sanitize_input(value: Any) -> Any:
-    """Cleans string input to prevent injection or unexpected characters."""
-    if isinstance(value, str):
-        return value.strip().replace("\0", "")
-    return value
+    @staticmethod
+    def is_valid_email(email: Any) -> bool:
+        """Checks if the provided input is a valid email string."""
+        if not isinstance(email, str):
+            return False
+        return bool(DataValidator.EMAIL_PATTERN.match(email))
 
-def batch_process_validation(items: List[Dict[str, Any]], keys: List[str]) -> List[Dict[str, Any]]:
-    """Filters list of dictionaries based on schema validation."""
-    valid_items = []
-    for item in items:
-        if validate_data_schema(item, keys):
-            valid_items.append({k: sanitize_input(v) for k, v in item.items()})
-    return valid_items
+    @staticmethod
+    def validate_range(value: int, min_val: int, max_val: int) -> bool:
+        """Ensures value falls within the specified inclusive range."""
+        return min_val <= value <= max_val
+
+    @staticmethod
+    def sanitize_input(data: Optional[str]) -> str:
+        """Strips whitespace and ensures data is a string."""
+        return str(data).strip() if data else ""
+
+    @classmethod
+    def validate_payload(cls, data: dict, required_keys: list) -> bool:
+        """Verifies that all required keys are present in the dictionary."""
+        return all(key in data for key in required_keys)
