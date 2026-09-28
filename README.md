@@ -1,53 +1,48 @@
-# Automation Tool 79
+# automation-tool-79
 
-Automation Tool 79 is a Python-based utility designed to streamline repetitive tasks and enhance productivity in various workflows. Whether you're automating data processing, managing file systems, or orchestrating web scraping, this tool provides an intuitive and efficient solution.
+A high-performance Python-based automation suite designed to streamline repetitive task execution and workflow management. It provides a modular framework for building custom scripts that interact seamlessly with local filesystems and remote APIs.
 
 ## Features
 
-- **Task Scheduling**: Set up recurring tasks effortlessly with flexible interval configurations.
-- **Data Handling**: Integrate with CSV, JSON, and Excel formats for seamless data import/export operations.
-- **Web Automation**: Leverage built-in capabilities to automate interactions with web applications using Selenium.
-- **Logging & Reporting**: Generate detailed logs for your automated tasks, along with easy-to-read summaries for workflow analysis.
+*   **Task Scheduling:** Built-in cron-like engine for executing recurring jobs with configurable jitter and retry logic.
+*   **Workflow Orchestration:** Support for chained execution patterns, allowing dependencies between tasks to be defined via YAML configuration.
+*   **Robust Logging:** Integrated asynchronous logging system that captures telemetry and failure states for rapid debugging.
+*   **API-First Design:** Extensive Python SDK for programmatically triggering automation sequences from external services.
 
 ## Installation
 
-To get started with Automation Tool 79, clone the repository and install the required dependencies:
+Ensure you have Python 3.9+ installed. Clone the repository and install the dependencies:
 
 ```bash
-git clone https://github.com/yourusername/automation-tool-79.git
+git clone https://github.com/Developer/automation-tool-79.git
 cd automation-tool-79
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ## Basic Usage
 
-Once installed, you can run the automation tool with a simple command. Below is a basic example to demonstrate how to send an automated email notification:
+Create a task file named `my_tasks.yaml` and run the executor:
 
 ```python
-from automation_tool import EmailSender
+from automation import Runner
 
-email_sender = EmailSender(
-    smtp_server='smtp.example.com',
-    port=587,
-    username='your_email@example.com',
-    password='your_password'
-)
+# Initialize the automation engine
+engine = Runner(config_path="my_tasks.yaml")
 
-email_sender.send_email(
-    to='recipient@example.com',
-    subject='Automated Notification',
-    body='Hello! This is an automated email from Automation Tool 79.'
-)
+# Run the task sequence
+engine.start()
 ```
 
-This snippet demonstrates using the EmailSender class to streamline your email communication. For more usage examples, please refer to the [documentation](./docs).
+To run from the command line:
+
+```bash
+python main.py --config my_tasks.yaml --verbose
+```
 
 ## License
 
-![MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Automation Tool 79 is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
-
----
-
-Explore the documentation for advanced usage and custom configurations to tailor Automation Tool 79 to your workflows!
+Distributed under the MIT License. See `LICENSE` for more information.
