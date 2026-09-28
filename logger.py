@@ -1,36 +1,53 @@
+import os
 import logging
 from logging.handlers import RotatingFileHandler
-import os
 
-def setup_logger(name: str, log_file: str = 'automation.log') -> logging.Logger:
-    """Initializes a logger with file rotation."""
+def setup_logger(
+    name: str = "automation_tool",
+    log_file: str = "logs/automation.log",
+    level: int = logging.INFO,
+    max_bytes: int = 5 * 1024 * 1024,
+    backup_count: int = 5
+) -> logging.Logger:
+    """
+    Configures and returns a logger with both console and rotating file handlers.
+    """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
-    # Prevent duplicate handlers if logger is re-initialized
-    if logger.hasHandlers():
-        logger.handlers.clear()
+    # Prevent duplicate handlers if logger is already configured
+    if logger.handlers:
+        return logger
 
-    # Rotate at 5MB, keep 3 backup files
-    handler = RotatingFileHandler(
-        log_file, 
-        maxBytes=5 * 1024 * 1024, 
-        backupCount=3
-    )
-
+    # Create standard formatter
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
     )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
-    # Also log to console for development visibility
+    # Console handler setup
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
+    console_handler.setLevel(level)
     logger.addHandler(console_handler)
 
-    return logger
+    # Rotating File handler setup
+    try:
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
 
-if __name__ == '__main__':
-    log = setup_logger('automation-tool-79')
-    log.info('logger initialization sequence completed')
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(level)
+        logger.addHandler(file_handler)
+    except Exception as e:
+        # Safe fallback in case directory creation or file write fails
+        logger.warning(f"Failed to initialize rotating file logger: {e}")
+
+    return logger
