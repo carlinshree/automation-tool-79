@@ -1,46 +1,28 @@
-import logging
-import functools
-from typing import Callable, Any
+from typing import List, Dict, Any, Optional
+import json
 
-logger = logging.getLogger(__name__)
+def load_config(file_path: str) -> Dict[str, Any]:
+    """Load configuration from a JSON file into a dictionary."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
-def safe_execution(func: Callable) -> Callable:
-    """
-    Decorator to handle unexpected errors in automation tasks.
-    Ensures the process doesn't crash on granular failures.
-    """
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        try:
-            return func(*args, **kwargs)
-        except ValueError as e:
-            logger.error(f"Data validation error in {func.__name__}: {e}")
-        except ConnectionError as e:
-            logger.error(f"Network connectivity issue in {func.__name__}: {e}")
-        except Exception as e:
-            logger.critical(f"Unexpected system error in {func.__name__}: {e}", exc_info=True)
+def format_data(items: List[str], prefix: str = "ID-") -> List[str]:
+    """Apply a prefix to each item in the provided list."""
+    return [f"{prefix}{item}" for item in items]
+
+def filter_by_key(data: List[Dict[str, Any]], key: str, value: Any) -> List[Dict[str, Any]]:
+    """Return entries from the list that match the specified key-value pair."""
+    return [entry for entry in data if entry.get(key) == value]
+
+def get_summary(data: List[int]) -> Optional[Dict[str, float]]:
+    """Calculate basic statistics for a list of integers."""
+    if not data:
         return None
-    return wrapper
-
-def validate_payload(data: Any) -> bool:
-    """
-    Simple validator to catch edge cases in input processing.
-    """
-    if data is None:
-        logger.warning("Attempted to process empty payload")
-        return False
-    if not isinstance(data, (dict, list)):
-        logger.error(f"Invalid payload format: {type(data)}")
-        return False
-    return True
-
-@safe_execution
-def process_data_node(data: Any) -> dict:
-    """
-    Example workflow with error handling integration.
-    """
-    if not validate_payload(data):
-        raise ValueError("Payload structure check failed")
-    
-    # Simulate business logic processing
-    return {"status": "success", "size": len(data) if isinstance(data, (dict, list)) else 0}
+    return {
+        "avg": sum(data) / len(data),
+        "max": float(max(data)),
+        "min": float(min(data))
+    }
