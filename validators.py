@@ -1,29 +1,38 @@
-import re
-from typing import Any, Optional
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-class DataValidator:
-    """Utility class for payload schema validation."""
+logger = logging.getLogger(__name__)
 
-    EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+def retry_operation(max_retries: int = 3, delay: float = 1.0):
+    """
+    Decorator for retrying network operations on failure.
+    """
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(delay * (2 ** attempt))
+            logger.error(f"Operation failed after {max_retries} attempts")
+            raise last_exception
+        return wrapper
+    return decorator
 
-    @staticmethod
-    def is_valid_email(email: Any) -> bool:
-        """Checks if the provided input is a valid email string."""
-        if not isinstance(email, str):
-            return False
-        return bool(DataValidator.EMAIL_PATTERN.match(email))
-
-    @staticmethod
-    def validate_range(value: int, min_val: int, max_val: int) -> bool:
-        """Ensures value falls within the specified inclusive range."""
-        return min_val <= value <= max_val
-
-    @staticmethod
-    def sanitize_input(data: Optional[str]) -> str:
-        """Strips whitespace and ensures data is a string."""
-        return str(data).strip() if data else ""
-
-    @classmethod
-    def validate_payload(cls, data: dict, required_keys: list) -> bool:
-        """Verifies that all required keys are present in the dictionary."""
-        return all(key in data for key in required_keys)
+@retry_operation(max_retries=3, delay=2.0)
+def fetch_network_resource(url: str) -> str:
+    """
+    Example network call wrapper.
+    """
+    # Simulating actual network logic
+    import random
+    if random.random() < 0.7:
+        raise ConnectionError("Network unstable")
+    return f"Data from {url}"
