@@ -1,37 +1,33 @@
-from typing import Any, Dict
+from typing import List, Dict, Any, Optional
 
-class Handler:
-    def __init__(self, settings: Dict[str, Any]) -> None:
-        """
-        Initializes the Handler with the given settings.
-        
-        :param settings: A dictionary containing configuration settings.
-        """
-        self.settings = settings
+class DataHandler:
+    """Manages processing of incoming data streams."""
 
-    def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Processes the input data according to handler settings.
-        
-        :param data: Input data to be processed.
-        :return: Processed data as a dictionary.
-        """
-        # Example processing logic
-        for key, value in self.settings.items():
-            if key in data:
-                data[key] = value
-        return data
+    def __init__(self, target_id: str, timeout: int = 30) -> None:
+        self.target_id = target_id
+        self.timeout = timeout
+        self.buffer: List[Dict[str, Any]] = []
 
-    def validate_settings(self) -> bool:
-        """
-        Validates the settings to ensure they contain necessary keys.
-        
-        :return: True if settings are valid, otherwise False.
-        """
-        required_keys = ['timeout', 'retry_count']
-        return all(key in self.settings for key in required_keys
-    
-# Example usage:
-# handler = Handler({'timeout': 5, 'retry_count': 3})
-# result = handler.process({'timeout': 10})
-# valid = handler.validate_settings()
+    def add_entry(self, data: Dict[str, Any]) -> bool:
+        """Adds a new entry to the internal buffer."""
+        if not isinstance(data, dict):
+            return False
+        self.buffer.append(data)
+        return True
+
+    def get_summary(self) -> Dict[str, Any]:
+        """Returns a summary dictionary of current buffer state."""
+        return {
+            "target": self.target_id,
+            "count": len(self.buffer),
+            "status": "active" if self.timeout > 0 else "idle"
+        }
+
+    def clear_buffer(self, filter_key: Optional[str] = None) -> int:
+        """Clears buffer entries and returns count of removed items."""
+        initial_count = len(self.buffer)
+        if filter_key:
+            self.buffer = [item for item in self.buffer if filter_key not in item]
+        else:
+            self.buffer.clear()
+        return initial_count - len(self.buffer)
