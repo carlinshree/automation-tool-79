@@ -1,24 +1,24 @@
-from typing import List, Optional, Any
 import os
+from typing import List, Optional, Union
 
-def get_file_list(directory: str, extension: str = ".txt") -> List[str]:
-    """Retrieve a list of files with a specific extension from a directory."""
-    if not os.path.exists(directory):
-        return []
-    
-    files = [f for f in os.listdir(directory) if f.endswith(extension)]
-    return files
+def load_environment_variable(key: str, default: Optional[str] = None) -> str:
+    """Retrieve an environment variable or return a fallback default."""
+    return os.getenv(key, default) or ""
 
-def format_payload(data: Any, prefix: str = "LOG") -> str:
-    """Format data into a string with a standardized prefix."""
-    return f"[{prefix}] {str(data).strip()}"
+def format_file_path(base_path: str, *parts: str) -> str:
+    """Construct a standardized file path from multiple segments."""
+    return os.path.normpath(os.path.join(base_path, *parts))
 
-def safe_get_env(key: str, default: Optional[str] = None) -> Optional[str]:
-    """Retrieve environment variables with an optional fallback."""
-    return os.environ.get(key, default)
+def split_list_by_chunk_size(items: List[Union[str, int]], size: int) -> List[List[Union[str, int]]:
+    """Divide a list into smaller sub-lists of a defined length."""
+    if size <= 0:
+        raise ValueError("Chunk size must be greater than zero.")
+    return [items[i:i + size] for i in range(0, len(items), size)]
 
-def parse_bool(value: Any) -> bool:
-    """Convert input to boolean based on truthy checks."""
-    if isinstance(value, bool):
-        return value
-    return str(value).lower() in ("true", "1", "yes", "on")
+def validate_directory_exists(path: str) -> bool:
+    """Check if the provided path is a directory and exists."""
+    return os.path.isdir(path)
+
+def sanitize_input_string(value: str) -> str:
+    """Remove whitespace and normalize line endings for processing."""
+    return value.strip().replace('\r\n', '\n')
