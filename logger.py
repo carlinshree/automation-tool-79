@@ -1,45 +1,36 @@
 import logging
-import functools
-import time
-from typing import Callable, Any
+from logging.handlers import RotatingFileHandler
+import os
 
-# Configure structured logging for automation-tool-79
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('core_logger')
+def setup_logger(name: str, log_file: str = 'automation.log') -> logging.Logger:
+    """Initializes a rotating file logger for the application."""
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
 
-# Cache for function performance optimization
-_performance_cache = {}
+    # Ensure directory exists
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
-def profile_execution(func: Callable) -> Callable:
-    """Decorator for tracking function execution duration."""
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        duration = time.perf_counter() - start_time
+    # Setup rotating file handler: 5MB per file, keep 3 backups
+    handler = RotatingFileHandler(
+        log_file, 
+        maxBytes=5 * 1024 * 1024, 
+        backupCount=3
+    )
+    
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    
+    # Avoid adding multiple handlers if setup is called repeatedly
+    if not logger.handlers:
+        logger.addHandler(handler)
         
-        # Log slow executions exceeding 100ms
-        if duration > 0.1:
-            logger.warning(f'slow execution in {func.__name__}: {duration:.4f}s')
-        return result
-    return wrapper
+    # Stream handler for console output
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
-def get_cached_config(key: str, default: Any = None) -> Any:
-    """Memory-efficient config lookup using internal cache."""
-    if key not in _performance_cache:
-        # Simulate IO-bound config fetch
-        _performance_cache[key] = default
-    return _performance_cache[key]
-
-class PerformanceHandler:
-    """Context manager for resource cleanup and profiling."""
-    def __init__(self, name: str):
-        self.name = name
-
-    def __enter__(self):
-        self.start = time.perf_counter()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed = time.perf_counter() - self.start
-        logger.info(f'operation {self.name} completed in {elapsed:.4f}s')
+    return logger
