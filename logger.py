@@ -1,32 +1,36 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+import os
 
-def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
-    """Configures and returns a standardized project logger."""
+def setup_logger(name: str, log_file: str = 'automation.log') -> logging.Logger:
+    """Initializes a rotating file logger for the application."""
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
+
+    # Ensure logs directory exists
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    # Setup rotation: 5MB per file, keep 3 backups
+    handler = RotatingFileHandler(
+        log_file, 
+        maxBytes=5 * 1024 * 1024, 
+        backupCount=3
+    )
+
+    # Set standard formatting for log messages
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
 
     if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
         logger.addHandler(handler)
 
+    # Also output to console for development visibility
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+
     return logger
-
-class AutomationLogger:
-    """Wrapper for consistent application logging across modules."""
-    def __init__(self, name: str = 'automation-tool-79'):
-        self.logger = setup_logger(name)
-
-    def info(self, msg: str) -> None:
-        self.logger.info(msg)
-
-    def error(self, msg: str, exc: Optional[Exception] = None) -> None:
-        self.logger.error(msg, exc_info=exc)
-
-    def warning(self, msg: str) -> None:
-        self.logger.warning(msg)
