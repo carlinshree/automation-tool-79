@@ -1,59 +1,40 @@
-import time
-import random
 import logging
-from typing import Callable, Any, Type, Tuple
 
-logger = logging.getLogger("automation_tool.processor")
+logger = logging.getLogger(__name__)
 
-def retry_on_failure(
-    retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
-) -> Callable:
-    """
-    Decorator that retries a function call with exponential backoff.
-    
-    :param retries: Maximum number of retry attempts.
-    :param delay: Initial delay between retries in seconds.
-    :param backoff: Multiplier applied to the delay after each retry.
-    :param exceptions: Tuple of exceptions that trigger a retry.
-    """
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    if attempt == retries:
-                        logger.error(
-                            "Execution failed after %d attempts. Error: %s",
-                            retries + 1,
-                            e
-                        )
-                        raise e
-                    
-                    # Apply small jitter to prevent thundering herd problem
-                    jitter = random.uniform(0, 0.1 * current_delay)
-                    sleep_time = current_delay + jitter
-                    
-                    logger.warning(
-                        "Attempt %d failed: %s. Retrying in %.2f seconds...",
-                        attempt + 1,
-                        e,
-                        sleep_time
-                    )
-                    time.sleep(sleep_time)
-                    current_delay *= backoff
-            return None
-        return wrapper
-    return decorator
+def process_data(data: list) -> list:
+    """Process raw data list with boundary and type validation."""
+    if not isinstance(data, list):
+        logger.error("Invalid input type: expected list")
+        return []
 
-@retry_on_failure(retries=3, delay=1.5, exceptions=(ConnectionError, TimeoutError))
-def execute_network_request(url: str) -> str:
-    """Simulates a network request that might temporarily fail."""
-    # 70% chance to simulate a network glitch for demonstration purposes
-    if random.random() < 0.7:
-        raise ConnectionError("Temporary connection failure")
-    return f"Success: response from {url}"
+    processed = []
+    for item in data:
+        try:
+            # Ensure numeric operations don't fail on mixed types
+            if not isinstance(item, (int, float)):
+                logger.warning(f"Skipping non-numeric entry: {item}")
+                continue
+            
+            # Simulate processing logic
+            result = float(item) * 1.05
+            processed.append(round(result, 2))
+            
+        except (ValueError, TypeError) as e:
+            logger.error(f"Data transformation error on {item}: {e}")
+            continue
+        except Exception as e:
+            logger.critical(f"Unexpected system fault: {e}")
+            raise
+
+    return processed
+
+def validate_batch(batch: dict) -> bool:
+    """Verify dictionary structure before pipeline ingestion."""
+    required_keys = {'id', 'payload'}
+    try:
+        if not isinstance(batch, dict):
+            return False
+        return required_keys.issubset(batch.keys())
+    except AttributeError:
+        return False
