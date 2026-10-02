@@ -1,24 +1,28 @@
-import os
-from typing import List, Optional, Union
+import time
+import functools
+import logging
 
-def load_environment_variable(key: str, default: Optional[str] = None) -> str:
-    """Retrieve an environment variable or return a fallback default."""
-    return os.getenv(key, default) or ""
+logger = logging.getLogger(__name__)
 
-def format_file_path(base_path: str, *parts: str) -> str:
-    """Construct a standardized file path from multiple segments."""
-    return os.path.normpath(os.path.join(base_path, *parts))
-
-def split_list_by_chunk_size(items: List[Union[str, int]], size: int) -> List[List[Union[str, int]]:
-    """Divide a list into smaller sub-lists of a defined length."""
-    if size <= 0:
-        raise ValueError("Chunk size must be greater than zero.")
-    return [items[i:i + size] for i in range(0, len(items), size)]
-
-def validate_directory_exists(path: str) -> bool:
-    """Check if the provided path is a directory and exists."""
-    return os.path.isdir(path)
-
-def sanitize_input_string(value: str) -> str:
-    """Remove whitespace and normalize line endings for processing."""
-    return value.strip().replace('\r\n', '\n')
+def retry_network_operation(max_retries=3, delay=2, backoff=2):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            last_exception = None
+            
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt} failed: {e}. Retrying in {current_delay}s...")
+                    if attempt < max_retries:
+                        time.sleep(current_delay)
+                        current_delay *= backoff
+            
+            logger.error(f"Operation failed after {max_retries} attempts.")
+            raise last_exception
+        return wrapper
+    return decorator
