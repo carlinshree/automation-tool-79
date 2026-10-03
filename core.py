@@ -1,54 +1,43 @@
-import concurrent.futures
-import functools
-import hashlib
-from typing import Any, Callable, Dict, List
+import time
+import random
+import logging
+from functools import wraps
+from typing import Callable, Any, Tuple, Type
 
+# Configure a logger for reporting retry events
+logger = logging.getLogger("automation_tool.core")
 
-class ExecutionCore:
-    """Core execution engine optimized for batch task processing and caching."""
-
-    def __init__(self, max_workers: int = 4):
-        self.max_workers = max_workers
-        self._result_cache: Dict[str, Any] = {}
-
-    @functools.lru_cache(maxsize=128)
-    def compute_hash(self, data: str) -> str:
-        """Cached helper for computing lightweight task fingerprints."""
-        return hashlib.sha256(data.encode('utf-8')).hexdigest()
-
-    def process_item_fast(self, item: Dict[str, Any], task_fn: Callable) -> Dict[str, Any]:
-        """Process a single item using cached computation where possible."""
-        item_id = str(item.get('id', ''))
-        cache_key = f"{item_id}:{item.get('payload', '')}"
-        fingerprint = self.compute_hash(cache_key)
-
-        if fingerprint in self._result_cache:
-            return {'id': item_id, 'result': self._result_cache[fingerprint], 'cached': True}
-
-        result = task_fn(item)
-        self._result_cache[fingerprint] = result
-        return {'id': item_id, 'result': result, 'cached': False}
-
-    def run_batch_parallel(self, items: List[Dict[str, Any]], task_fn: Callable) -> List[Dict[str, Any]]:
-        """Execute a batch of automation tasks concurrently to improve throughput."""
-        if not items:
-            return []
-
-        results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self.process_item_fast, item, task_fn)
-                for item in items
-            ]
-            for future in concurrent.futures.as_completed(futures):
+def retry_operation(
+    retries: int = 3,
+    backoff_in_seconds: float = 1.0,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+) -> Callable:
+    """
+    Decorator that retries a function call using exponential backoff with jitter.
+    
+    :param retries: Maximum number of retry attempts allowed.
+    :param backoff_in_seconds: Initial wait time in seconds.
+    :param exceptions: Exception types that trigger a retry attempt.
+    """
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            attempt = 0
+            while attempt <= retries:
                 try:
-                    results.append(future.result())
-                except Exception as err:
-                    results.append({'error': str(err), 'status': 'failed'})
-
-        return results
-
-    def clear_cache(self) -> None:
-        """Purge cached task results to release memory."""
-        self._result_cache.clear()
-        self.compute_hash.cache_clear()
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    attempt += 1
+                    if attempt > retries:
+                        logger.error(f"Failed '{func.__name__}' after {retries} retries. Final error: {e}")
+                        raise e
+                    
+                    # Exponential backoff base with added jitter to avoid thundering herd problem
+                    sleep_time = (backoff_in_seconds * (2 ** (attempt - 1))) + random.uniform(0.1, 0.5)
+                    logger.warning(
+                        f"Attempt {attempt}/{retries} failed for '{func.__name__}': {e}. "
+                        f"Retrying in {sleep_time:.2f} seconds..."
+                    )
+                    time.sleep(sleep_time)
+        return wrapper
+    return decorator
