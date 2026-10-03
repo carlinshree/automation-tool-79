@@ -1,33 +1,27 @@
+from typing import Optional
+
 class AutomationError(Exception):
-    """Base exception for automation-tool-79."""
-    pass
-
-class ValidationError(AutomationError):
-    """Raised when input validation fails."""
-    pass
-
-class ProcessingError(AutomationError):
-    """Raised when data transformation fails."""
-    pass
+    """Base exception class for automation-tool-79."""
+    def __init__(self, message: str, code: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 class ConfigurationError(AutomationError):
-    """Raised for missing or invalid config."""
+    """Raised when configuration validation fails."""
     pass
 
-def handle_automation_errors(func):
-    """Decorator for centralized error catching."""
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except AutomationError as e:
-            print(f"Caught expected error: {e}")
-            raise
-        except Exception as e:
-            print(f"Caught unexpected system failure: {e}")
-            raise RuntimeError("Fatal processing failure") from e
-    return wrapper
+class ExecutionError(AutomationError):
+    """Raised when an automation task fails during execution."""
+    def __init__(self, message: str, task_id: str, code: Optional[int] = None) -> None:
+        super().__init__(message, code)
+        self.task_id = task_id
 
-# Usage example:
-# @handle_automation_errors
-# def execute_task():
-#     raise ValidationError("Invalid parameter provided")
+class ValidationError(AutomationError):
+    """Raised when data inputs fail schema checks."""
+    pass
+
+def format_error(error: AutomationError) -> str:
+    """Return a formatted string representation of an error."""
+    if isinstance(error, ExecutionError):
+        return f"Task {error.task_id} failed: {error} (Code: {error.code})"
+    return f"Error: {error}"
