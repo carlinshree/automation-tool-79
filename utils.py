@@ -1,28 +1,37 @@
-import time
-import functools
-import logging
+import json
+from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+def load_json_file(file_path: str) -> Optional[Dict[str, Any]]:
+    """
+    Reads and parses a JSON file safely.
+    Returns dictionary if successful, None otherwise.
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, IOError):
+        return None
 
-def retry_network_operation(max_retries=3, delay=2, backoff=2):
-    """Decorator for retrying network operations with exponential backoff."""
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            current_delay = delay
-            last_exception = None
-            
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    last_exception = e
-                    logger.warning(f"Attempt {attempt} failed: {e}. Retrying in {current_delay}s...")
-                    if attempt < max_retries:
-                        time.sleep(current_delay)
-                        current_delay *= backoff
-            
-            logger.error(f"Operation failed after {max_retries} attempts.")
-            raise last_exception
-        return wrapper
-    return decorator
+def save_json_file(data: Dict[str, Any], file_path: str) -> bool:
+    """
+    Serializes data to a JSON file with pretty printing.
+    Returns True on success, False on failure.
+    """
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, sort_keys=True)
+        return True
+    except (TypeError, IOError):
+        return False
+
+def sanitize_input(data: Any) -> Any:
+    """
+    Basic stripping of string inputs for cleaner processing.
+    """
+    if isinstance(data, str):
+        return data.strip()
+    if isinstance(data, dict):
+        return {k: sanitize_input(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [sanitize_input(i) for i in data]
+    return data
