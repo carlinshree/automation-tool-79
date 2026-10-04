@@ -2,35 +2,34 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 
-def setup_logger(name: str, log_file: str = 'automation.log') -> logging.Logger:
-    """Initializes a rotating file logger for the application."""
+def setup_logger(name='automation-tool', log_file='app.log', level=logging.INFO):
+    """Configures a rotating file logger for automation-tool-79."""
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
-    # Ensure logs directory exists
-    log_dir = os.path.dirname(log_file)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    # Setup rotation: 5MB per file, keep 3 backups
-    handler = RotatingFileHandler(
-        log_file, 
-        maxBytes=5 * 1024 * 1024, 
-        backupCount=3
-    )
-
-    # Set standard formatting for log messages
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    handler.setFormatter(formatter)
-
+    # Prevent duplicate handlers if setup is called multiple times
     if not logger.handlers:
-        logger.addHandler(handler)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
 
-    # Also output to console for development visibility
-    console = logging.StreamHandler()
-    console.setFormatter(formatter)
-    logger.addHandler(console)
+        # Rotate files: max 5MB, keep 3 backup files
+        file_handler = RotatingFileHandler(
+            log_file, 
+            maxBytes=5 * 1024 * 1024, 
+            backupCount=3
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+        # Add console output for development visibility
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     return logger
+
+if __name__ == '__main__':
+    # Example usage for verification
+    log = setup_logger()
+    log.info('logger initialization successful')
