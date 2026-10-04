@@ -1,36 +1,37 @@
-import json
 import os
-from typing import Any, Dict
+import json
+import logging
 
+# Configure application settings with fallback mechanisms
 DEFAULT_CONFIG = {
-    "log_level": "INFO",
     "max_retries": 3,
     "timeout": 30,
-    "data_dir": "./data"
+    "log_level": "INFO"
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """
-    Loads configuration from JSON file and merges with defaults.
-    """
-    config = DEFAULT_CONFIG.copy()
+def load_config(filepath: str) -> dict:
+    """Loads configuration from a JSON file with validation."""
+    if not os.path.exists(filepath):
+        logging.warning(f"Config file missing at {filepath}, using defaults")
+        return DEFAULT_CONFIG
 
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Could not load config {config_path}: {e}")
-    
-    return config
-
-def save_config(config: Dict[str, Any], config_path: str = "config.json") -> None:
-    """
-    Persists configuration to a JSON file.
-    """
     try:
-        with open(config_path, "w") as f:
-            json.dump(config, f, indent=4)
-    except IOError as e:
-        print(f"Error: Could not save config to {config_path}: {e}")
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("Invalid config format: expected dictionary")
+            return {**DEFAULT_CONFIG, **data}
+    except json.JSONDecodeError:
+        logging.error(f"Malformed JSON in {filepath}")
+        return DEFAULT_CONFIG
+    except (PermissionError, OSError) as e:
+        logging.error(f"File access error {filepath}: {e}")
+        return DEFAULT_CONFIG
+
+def validate_config(config: dict) -> bool:
+    """Ensures critical keys exist in configuration."""
+    required_keys = ['max_retries', 'timeout']
+    try:
+        return all(k in config for k in required_keys)
+    except TypeError:
+        return False
