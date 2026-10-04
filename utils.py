@@ -1,37 +1,34 @@
 import json
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Optional
 
-def load_json_file(file_path: str) -> Optional[Dict[str, Any]]:
-    """
-    Reads and parses a JSON file safely.
-    Returns dictionary if successful, None otherwise.
-    """
+def load_json_file(file_path: str) -> Optional[dict]:
+    """Loads data from a local JSON file."""
+    if not os.path.exists(file_path):
+        return None
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError, IOError):
+    except (json.JSONDecodeError, IOError):
         return None
 
-def save_json_file(data: Dict[str, Any], file_path: str) -> bool:
-    """
-    Serializes data to a JSON file with pretty printing.
-    Returns True on success, False on failure.
-    """
+def save_json_file(file_path: str, data: Any) -> bool:
+    """Persists dictionary data to a JSON file."""
     try:
         with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4, sort_keys=True)
+            json.dump(data, f, indent=4)
         return True
     except (TypeError, IOError):
         return False
 
-def sanitize_input(data: Any) -> Any:
-    """
-    Basic stripping of string inputs for cleaner processing.
-    """
-    if isinstance(data, str):
-        return data.strip()
-    if isinstance(data, dict):
-        return {k: sanitize_input(v) for k, v in data.items()}
-    if isinstance(data, list):
-        return [sanitize_input(i) for i in data]
-    return data
+def sanitize_input(data: str) -> str:
+    """Cleans basic whitespace and newline characters."""
+    return data.strip().replace('\n', '').replace('\r', '')
+
+def format_data_bytes(size_in_bytes: int) -> str:
+    """Converts raw byte count to readable string."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_in_bytes < 1024:
+            return f"{size_in_bytes:.2f} {unit}"
+        size_in_bytes /= 1024
+    return f"{size_in_bytes:.2f} TB"
