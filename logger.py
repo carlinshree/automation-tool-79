@@ -1,35 +1,33 @@
 import logging
-from logging.handlers import RotatingFileHandler
-import os
+import sys
+from pathlib import Path
 
-def setup_logger(name='automation-tool', log_file='app.log', level=logging.INFO):
-    """Configures a rotating file logger for automation-tool-79."""
+def setup_logger(name: str, log_file: str = "app.log", level: int = logging.INFO) -> logging.Logger:
+    """Configures a structured file and console logger."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Prevent duplicate handlers if setup is called multiple times
-    if not logger.handlers:
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
-        # Rotate files: max 5MB, keep 3 backup files
-        file_handler = RotatingFileHandler(
-            log_file, 
-            maxBytes=5 * 1024 * 1024, 
-            backupCount=3
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
-        # Add console output for development visibility
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    # File handler
+    log_path = Path(log_file)
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     return logger
 
-if __name__ == '__main__':
-    # Example usage for verification
-    log = setup_logger()
-    log.info('logger initialization successful')
+def get_task_logger(task_name: str) -> logging.Logger:
+    """Factory method for task-specific logger instances."""
+    return setup_logger(task_name)
+
+# Standard logger for the tool
+logger = setup_logger("automation-tool-79")
