@@ -1,43 +1,60 @@
-import time
-import random
-import logging
-from functools import wraps
-from typing import Callable, Any, Tuple, Type
+import concurrent.futures
+from typing import List, Dict, Any, Callable
 
-# Configure a logger for reporting retry events
-logger = logging.getLogger("automation_tool.core")
+class CoreEngine:
+    '''
+    Core execution engine optimized for parallel task processing and
+    redundant task deduplication using memory-based caching.
+    '''
+    def __init__(self, max_workers: int = 4):
+        self.max_workers = max_workers
+        self._cache: Dict[str, Any] = {}
 
-def retry_operation(
-    retries: int = 3,
-    backoff_in_seconds: float = 1.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
-) -> Callable:
-    """
-    Decorator that retries a function call using exponential backoff with jitter.
-    
-    :param retries: Maximum number of retry attempts allowed.
-    :param backoff_in_seconds: Initial wait time in seconds.
-    :param exceptions: Exception types that trigger a retry attempt.
-    """
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            attempt = 0
-            while attempt <= retries:
+    def _get_cache_key(self, task_name: str, args: tuple, kwargs: dict) -> str:
+        # Generate a unique cache key based on task identity and arguments
+        str_kwargs = sorted([(k, str(v)) for k, v in kwargs.items()])
+        return f'{task_name}:{hash(args)}:{hash(tuple(str_kwargs))}'
+
+    def run_task(self, task_id: str, func: Callable, *args, **kwargs) -> Any:
+        # Execute single task with caching mechanism
+        cache_key = self._get_cache_key(task_id, args, kwargs)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        result = func(*args, **kwargs)
+        self._cache[cache_key] = result
+        return result
+
+    def execute_batch(self, tasks: List[Dict[str, Any]]) -> List[Any]:
+        '''
+        Executes a list of tasks in parallel using a ThreadPoolExecutor.
+        Each task dict contains: 'id', 'func', and optional 'args' and 'kwargs'.
+        '''
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {}
+            for task in tasks:
+                task_id = task['id']
+                func = task['func']
+                args = task.get('args', ())
+                kwargs = task.get('kwargs', {})
+
+                cache_key = self._get_cache_key(task_id, args, kwargs)
+                if cache_key in self._cache:
+                    results.append(self._cache[cache_key])
+                    continue
+
+                future = executor.submit(func, *args, **kwargs)
+                futures[future] = (task_id, args, kwargs)
+
+            for future in concurrent.futures.as_completed(futures):
+                task_id, args, kwargs = futures[future]
                 try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    attempt += 1
-                    if attempt > retries:
-                        logger.error(f"Failed '{func.__name__}' after {retries} retries. Final error: {e}")
-                        raise e
-                    
-                    # Exponential backoff base with added jitter to avoid thundering herd problem
-                    sleep_time = (backoff_in_seconds * (2 ** (attempt - 1))) + random.uniform(0.1, 0.5)
-                    logger.warning(
-                        f"Attempt {attempt}/{retries} failed for '{func.__name__}': {e}. "
-                        f"Retrying in {sleep_time:.2f} seconds..."
-                    )
-                    time.sleep(sleep_time)
-        return wrapper
-    return decorator
+                    result = future.result()
+                    cache_key = self._get_cache_key(task_id, args, kwargs)
+                    self._cache[cache_key] = result
+                    results.append(result)
+                except Exception as e:
+                    results.append(e)
+
+        return results
