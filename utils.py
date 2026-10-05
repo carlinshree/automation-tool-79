@@ -1,34 +1,34 @@
 import json
 import os
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any, Dict, Optional
 
-def load_json_file(file_path: str) -> Optional[dict]:
-    """Loads data from a local JSON file."""
-    if not os.path.exists(file_path):
-        return None
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return None
+def load_json(filepath: str) -> Dict[str, Any]:
+    """Load and parse a JSON file safely."""
+    if not os.path.exists(filepath):
+        return {}
+    with open(filepath, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-def save_json_file(file_path: str, data: Any) -> bool:
-    """Persists dictionary data to a JSON file."""
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
-        return True
-    except (TypeError, IOError):
-        return False
+def save_json(filepath: str, data: Dict[str, Any]) -> None:
+    """Save dictionary to a formatted JSON file."""
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
 
-def sanitize_input(data: str) -> str:
-    """Cleans basic whitespace and newline characters."""
-    return data.strip().replace('\n', '').replace('\r', '')
+def get_timestamp() -> str:
+    """Return current ISO formatted timestamp."""
+    return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
-def format_data_bytes(size_in_bytes: int) -> str:
-    """Converts raw byte count to readable string."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_in_bytes < 1024:
-            return f"{size_in_bytes:.2f} {unit}"
-        size_in_bytes /= 1024
-    return f"{size_in_bytes:.2f} TB"
+def ensure_directory(path: str) -> None:
+    """Create directory path if it missing."""
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+def sanitize_filename(filename: str) -> str:
+    """Replace spaces and special characters."""
+    return "".join(c if c.isalnum() else '_' for c in filename).lower()
+
+def log_event(message: str, level: str = "INFO") -> None:
+    """Standard output formatting for automation logs."""
+    timestamp = get_timestamp()
+    print(f"[{timestamp}] {level}: {message}")
