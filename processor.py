@@ -1,40 +1,38 @@
 import logging
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-def process_data(data: list) -> list:
-    """Process raw data list with boundary and type validation."""
-    if not isinstance(data, list):
-        logger.error("Invalid input type: expected list")
-        return []
+class DataProcessor:
+    """Handles core data transformation for automation-tool-79."""
+    
+    def process_item(self, data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        # validation of input structure
+        if not isinstance(data, dict):
+            logger.error("Invalid input type: expected dictionary")
+            raise ValueError("Input must be a dictionary")
 
-    processed = []
-    for item in data:
         try:
-            # Ensure numeric operations don't fail on mixed types
-            if not isinstance(item, (int, float)):
-                logger.warning(f"Skipping non-numeric entry: {item}")
-                continue
+            # edge case: missing required fields
+            result = {
+                "id": data.get("id"),
+                "status": "processed",
+                "payload": data.get("payload", {})
+            }
             
-            # Simulate processing logic
-            result = float(item) * 1.05
-            processed.append(round(result, 2))
+            if result["id"] is None:
+                raise KeyError("Missing mandatory key: id")
+
+            return result
             
-        except (ValueError, TypeError) as e:
-            logger.error(f"Data transformation error on {item}: {e}")
-            continue
+        except KeyError as e:
+            logger.warning(f"Data processing failure: {e}")
+            return {"status": "error", "error": str(e)}
+            
         except Exception as e:
-            logger.critical(f"Unexpected system fault: {e}")
-            raise
+            logger.critical(f"Unexpected system failure: {e}", exc_info=True)
+            return {"status": "failed", "error": "internal processing error"}
 
-    return processed
-
-def validate_batch(batch: dict) -> bool:
-    """Verify dictionary structure before pipeline ingestion."""
-    required_keys = {'id', 'payload'}
-    try:
-        if not isinstance(batch, dict):
-            return False
-        return required_keys.issubset(batch.keys())
-    except AttributeError:
-        return False
+if __name__ == "__main__":
+    proc = DataProcessor()
+    print(proc.process_item({"id": 1, "payload": "data"}))
