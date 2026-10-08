@@ -1,38 +1,43 @@
-import time
-import functools
-import logging
-from typing import Callable, Any
+import os
+import re
+from urllib.parse import urlparse
 
-logger = logging.getLogger(__name__)
+# Regular expression for basic email validation
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
-def retry_operation(max_retries: int = 3, delay: float = 1.0):
-    """
-    Decorator for retrying network operations on failure.
-    """
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    last_exception = e
-                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                    if attempt < max_retries - 1:
-                        time.sleep(delay * (2 ** attempt))
-            logger.error(f"Operation failed after {max_retries} attempts")
-            raise last_exception
-        return wrapper
-    return decorator
 
-@retry_operation(max_retries=3, delay=2.0)
-def fetch_network_resource(url: str) -> str:
-    """
-    Example network call wrapper.
-    """
-    # Simulating actual network logic
-    import random
-    if random.random() < 0.7:
-        raise ConnectionError("Network unstable")
-    return f"Data from {url}"
+def is_valid_url(url: str) -> bool:
+    """Check if a string is a valid HTTP or HTTPS URL."""
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    except ValueError:
+        return False
+
+
+def is_valid_email(email: str) -> bool:
+    """Check if a string matches a basic email pattern."""
+    if not email:
+        return False
+    return bool(EMAIL_REGEX.match(email))
+
+
+def find_missing_paths(paths: list) -> list:
+    """Verify existence of required file paths and return a list of missing ones."""
+    missing = []
+    for path in paths:
+        if not isinstance(path, str):
+            missing.append(str(path))
+        elif not os.path.exists(path):
+            missing.append(path)
+    return missing
+
+
+def validate_cron_expression(cron: str) -> bool:
+    """Validate standard 5-field cron expressions in a simplistic manner."""
+    if not cron or not isinstance(cron, str):
+        return False
+    parts = cron.split()
+    return len(parts) == 5
