@@ -1,17 +1,17 @@
 # automation-tool-79
 
-A high-performance Python-based automation suite designed to streamline repetitive task execution and workflow management. It provides a modular framework for building custom scripts that interact seamlessly with local filesystems and remote APIs.
+`automation-tool-79` is a modular Python-based utility designed to streamline repetitive filesystem and network tasks. It provides a lightweight command-line interface to orchestrate complex workflows with minimal configuration.
 
 ## Features
 
-*   **Task Scheduling:** Built-in cron-like engine for executing recurring jobs with configurable jitter and retry logic.
-*   **Workflow Orchestration:** Support for chained execution patterns, allowing dependencies between tasks to be defined via YAML configuration.
-*   **Robust Logging:** Integrated asynchronous logging system that captures telemetry and failure states for rapid debugging.
-*   **API-First Design:** Extensive Python SDK for programmatically triggering automation sequences from external services.
+*   **Task Scheduling:** Execute custom scripts at precise intervals using a non-blocking internal scheduler.
+*   **Log Aggregation:** Automatically captures, rotates, and formats console outputs into structured JSON log files.
+*   **Environment Sync:** Synchronize local directory structures with remote storage endpoints via robust API wrappers.
+*   **Plugin Architecture:** Extend core functionality by dropping custom `.py` modules into the `plugins/` directory.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. Clone the repository and install the dependencies:
+Ensure you have Python 3.9+ installed. Clone the repository and install the required dependencies:
 
 ```bash
 git clone https://github.com/Developer/automation-tool-79.git
@@ -21,28 +21,31 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Basic Usage
+## Usage
 
-Create a task file named `my_tasks.yaml` and run the executor:
-
-```python
-from automation import Runner
-
-# Initialize the automation engine
-engine = Runner(config_path="my_tasks.yaml")
-
-# Run the task sequence
-engine.start()
-```
-
-To run from the command line:
+The tool operates via a YAML configuration file. Define your tasks in `config.yaml` and execute the runner:
 
 ```bash
-python main.py --config my_tasks.yaml --verbose
+# Run a specific task defined in your config
+python main.py --task sync-assets --verbose
+
+# Run all scheduled tasks in background mode
+python main.py --daemonize
 ```
 
-## License
+### Configuration Example (`config.yaml`)
+```yaml
+tasks:
+  sync-assets:
+    source: "./data"
+    target: "s3://bucket-name/uploads"
+    interval: 3600
+```
 
+## Contributing
+Contributions are welcome. Please fork the repository and submit a pull request with unit tests covering your changes.
+
+## License
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Distributed under the MIT License. See `LICENSE` for more information.
