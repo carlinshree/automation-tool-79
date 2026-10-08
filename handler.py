@@ -1,33 +1,31 @@
-from typing import List, Dict, Any, Optional
+import time
+import functools
+import logging
 
-class DataHandler:
-    """Manages processing of incoming data streams."""
+logger = logging.getLogger(__name__)
 
-    def __init__(self, target_id: str, timeout: int = 30) -> None:
-        self.target_id = target_id
-        self.timeout = timeout
-        self.buffer: List[Dict[str, Any]] = []
+def retry_operation(retries=3, delay=2, exceptions=(ConnectionError, TimeoutError)):
+    """Decorator to retry network operations on failure."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+            
+            logger.error(f"All {retries} retries exhausted.")
+            raise last_exception
+        return wrapper
+    return decorator
 
-    def add_entry(self, data: Dict[str, Any]) -> bool:
-        """Adds a new entry to the internal buffer."""
-        if not isinstance(data, dict):
-            return False
-        self.buffer.append(data)
-        return True
-
-    def get_summary(self) -> Dict[str, Any]:
-        """Returns a summary dictionary of current buffer state."""
-        return {
-            "target": self.target_id,
-            "count": len(self.buffer),
-            "status": "active" if self.timeout > 0 else "idle"
-        }
-
-    def clear_buffer(self, filter_key: Optional[str] = None) -> int:
-        """Clears buffer entries and returns count of removed items."""
-        initial_count = len(self.buffer)
-        if filter_key:
-            self.buffer = [item for item in self.buffer if filter_key not in item]
-        else:
-            self.buffer.clear()
-        return initial_count - len(self.buffer)
+@retry_operation(retries=3, delay=1)
+def fetch_data(url):
+    """Simulated network request with potential for failure."""
+    logger.info(f"Requesting data from {url}")
+    # Simulate network instability logic here
+    return {"status": "success", "url": url}
