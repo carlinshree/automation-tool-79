@@ -1,38 +1,33 @@
-import logging
-from typing import Any, Dict, Optional
-
-logger = logging.getLogger(__name__)
+from typing import List, Dict, Optional, Any
 
 class DataProcessor:
-    """Handles core data transformation for automation-tool-79."""
-    
-    def process_item(self, data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        # validation of input structure
-        if not isinstance(data, dict):
-            logger.error("Invalid input type: expected dictionary")
-            raise ValueError("Input must be a dictionary")
+    """Handles transformation of raw data batches."""
 
-        try:
-            # edge case: missing required fields
-            result = {
-                "id": data.get("id"),
-                "status": "processed",
-                "payload": data.get("payload", {})
-            }
-            
-            if result["id"] is None:
-                raise KeyError("Missing mandatory key: id")
+    def __init__(self, settings: Optional[Dict[str, Any]] = None) -> None:
+        self.settings = settings or {}
+        self.buffer: List[str] = []
 
-            return result
-            
-        except KeyError as e:
-            logger.warning(f"Data processing failure: {e}")
-            return {"status": "error", "error": str(e)}
-            
-        except Exception as e:
-            logger.critical(f"Unexpected system failure: {e}", exc_info=True)
-            return {"status": "failed", "error": "internal processing error"}
+    def ingest(self, item: str) -> None:
+        """Adds a string item to the processing buffer."""
+        if item:
+            self.buffer.append(item.strip())
 
-if __name__ == "__main__":
-    proc = DataProcessor()
-    print(proc.process_item({"id": 1, "payload": "data"}))
+    def process_batch(self, threshold: int = 5) -> List[str]:
+        """Transforms and clears buffer if threshold reached."""
+        if len(self.buffer) < threshold:
+            return []
+
+        processed = [item.upper() for item in self.buffer]
+        self.buffer.clear()
+        return processed
+
+    def get_status(self) -> Dict[str, int]:
+        """Returns current state of the processor."""
+        return {"buffered_count": len(self.buffer)}
+
+def run_pipeline(data: List[str]) -> List[str]:
+    """Utility function to execute a full pass."""
+    processor = DataProcessor()
+    for entry in data:
+        processor.ingest(entry)
+    return processor.process_batch(threshold=0)
