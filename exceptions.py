@@ -2,22 +2,31 @@ class AutomationError(Exception):
     """Base exception for automation-tool-79."""
     pass
 
-class DataValidationError(AutomationError):
-    """Raised when input data fails schema or type checks."""
-    pass
-
-class ProcessingError(AutomationError):
-    """Raised during internal transformation failures."""
-    pass
-
 class ConfigurationError(AutomationError):
-    """Raised for missing or invalid environment variables."""
+    """Raised when settings are invalid."""
     pass
 
-def handle_data_exception(e: Exception) -> dict:
-    """Standardized structure for logging automation errors."""
-    return {
-        "error_type": e.__class__.__name__,
-        "message": str(e),
-        "status": "failed"
-    }
+class ExecutionTimeoutError(AutomationError):
+    """Raised when a process exceeds time limits."""
+    pass
+
+class ValidationError(AutomationError):
+    """Raised when input validation fails."""
+    pass
+
+def raise_if_none(value, message):
+    """Validate object existence."""
+    if value is None:
+        raise ValidationError(message)
+
+def handle_retryable(func, attempts=3):
+    """Decorator logic for function retries."""
+    def wrapper(*args, **kwargs):
+        last_ex = None
+        for i in range(attempts):
+            try:
+                return func(*args, **kwargs)
+            except AutomationError as e:
+                last_ex = e
+        raise last_ex
+    return wrapper
