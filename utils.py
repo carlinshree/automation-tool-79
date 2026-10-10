@@ -1,34 +1,32 @@
-import json
-import os
-from datetime import datetime
-from typing import Any, Dict, Optional
+import time
+import functools
+import logging
 
-def load_json(filepath: str) -> Dict[str, Any]:
-    """Load and parse a JSON file safely."""
-    if not os.path.exists(filepath):
-        return {}
-    with open(filepath, 'r', encoding='utf-8') as f:
-        return json.load(f)
+logger = logging.getLogger(__name__)
 
-def save_json(filepath: str, data: Dict[str, Any]) -> None:
-    """Save dictionary to a formatted JSON file."""
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
+def retry_network_op(retries=3, delay=2, backoff=2):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    if attempt == retries - 1:
+                        logger.error(f"Final attempt failed for {func.__name__}")
+                        raise
+                    
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-def get_timestamp() -> str:
-    """Return current ISO formatted timestamp."""
-    return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-
-def ensure_directory(path: str) -> None:
-    """Create directory path if it missing."""
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-def sanitize_filename(filename: str) -> str:
-    """Replace spaces and special characters."""
-    return "".join(c if c.isalnum() else '_' for c in filename).lower()
-
-def log_event(message: str, level: str = "INFO") -> None:
-    """Standard output formatting for automation logs."""
-    timestamp = get_timestamp()
-    print(f"[{timestamp}] {level}: {message}")
+@retry_network_op(retries=3, delay=1)
+def fetch_data(url):
+    """Example network operation function."""
+    # Simulating network call
+    logger.info(f"Requesting {url}")
+    return {"status": 200, "data": "sample"}
