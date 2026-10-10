@@ -1,48 +1,35 @@
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "app_name": "AutomationTool",
-    "version": "1.0.0",
-    "log_level": "INFO",
-    "max_retries": 3,
+DEFAULT_CONFIG = {
+    "retry_limit": 3,
     "timeout": 30,
-    "output_dir": "./output",
-    "enable_notifications": False,
+    "log_level": "INFO",
+    "enabled": True
 }
 
+def load_config(filepath: str) -> Dict[str, Any]:
+    """
+    Loads configuration from JSON file with fallback defaults.
+    """
+    config = DEFAULT_CONFIG.copy()
 
-class ConfigLoader:
-    """Loads and merges configuration settings with default fallback values."""
+    if not os.path.exists(filepath):
+        return config
 
-    def __init__(self, config_path: Optional[str] = None):
-        self.config_path = config_path
-        self._config: Dict[str, Any] = DEFAULT_CONFIG.copy()
-        if config_path:
-            self.load()
+    try:
+        with open(filepath, 'r') as f:
+            user_config = json.load(f)
+            config.update(user_config)
+    except (json.JSONDecodeError, IOError):
+        pass
 
-    def load(self, path: Optional[str] = None) -> Dict[str, Any]:
-        """Load JSON configuration file and update defaults."""
-        target_path = path or self.config_path
-        if not target_path or not os.path.exists(target_path):
-            return self._config
+    return config
 
-        try:
-            with open(target_path, "r", encoding="utf-8") as f:
-                user_config = json.load(f)
-                if isinstance(user_config, dict):
-                    self._config.update(user_config)
-        except (json.JSONDecodeError, OSError) as err:
-            print(f"Warning: Failed to load config from {target_path}: {err}")
-
-        return self._config
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Retrieve a configuration option by key."""
-        return self._config.get(key, default)
-
-    @property
-    def config(self) -> Dict[str, Any]:
-        """Return the current configuration dictionary."""
-        return self._config.copy()
+def save_config(filepath: str, data: Dict[str, Any]) -> None:
+    """
+    Persists configuration dictionary to JSON file.
+    """
+    with open(filepath, 'w') as f:
+        json.dump(data, f, indent=4)
