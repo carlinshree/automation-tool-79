@@ -1,35 +1,29 @@
-import re
+import json
+import os
+from datetime import datetime
 from typing import Any, Dict, Optional
 
-def validate_input(data: Dict[str, Any]) -> bool:
-    """Checks if input data meets schema requirements."""
-    required_keys = {'id', 'task', 'priority'}
-    
-    # Verify all required keys exist
-    if not all(key in data for key in required_keys):
-        return False
+def load_json_config(file_path: str) -> Dict[str, Any]:
+    """Load and parse a JSON configuration file."""
+    if not os.path.exists(file_path):
+        return {}
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-    # Validate id format (alphanumeric)
-    if not isinstance(data['id'], str) or not re.match(r'^[a-zA-Z0-9]+$', data['id']):
-        return False
+def save_json_config(file_path: str, data: Dict[str, Any]) -> None:
+    """Save data dictionary to a JSON file."""
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
 
-    # Validate priority range
-    if not isinstance(data['priority'], int) or not (1 <= data['priority'] <= 10):
-        return False
+def get_timestamp_string() -> str:
+    """Return current UTC timestamp as ISO string."""
+    return datetime.utcnow().isoformat()
 
-    return True
+def safe_get(dictionary: Dict, key: str, default: Any = None) -> Any:
+    """Safely retrieve value from nested dictionaries."""
+    return dictionary.get(key, default)
 
-def sanitize_task_name(task_name: str) -> str:
-    """Removes dangerous characters from task descriptions."""
-    return re.sub(r'[^a-zA-Z0-9\s_-]', '', task_name).strip()
-
-def process_payload(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Standardizes and validates input payload for the processor."""
-    if not payload or not validate_input(payload):
-        raise ValueError("invalid input structure detected")
-
-    return {
-        "id": payload['id'],
-        "task": sanitize_task_name(payload['task']),
-        "priority": payload['priority']
-    }
+def ensure_directory(path: str) -> None:
+    """Create directory if it does not exist."""
+    if not os.path.exists(path):
+        os.makedirs(path)
