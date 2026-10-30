@@ -3,33 +3,25 @@ import os
 from typing import Any, Dict
 
 DEFAULT_CONFIG = {
-    "retry_limit": 3,
-    "timeout": 30,
     "log_level": "INFO",
-    "enabled": True
+    "max_retries": 3,
+    "timeout": 30
 }
 
-def load_config(filepath: str) -> Dict[str, Any]:
-    """
-    Loads configuration from JSON file with fallback defaults.
-    """
+def load_config(file_path: str = "config.json") -> Dict[str, Any]:
+    """Loads configuration from a JSON file with defaults."""
     config = DEFAULT_CONFIG.copy()
-
-    if not os.path.exists(filepath):
-        return config
-
-    try:
-        with open(filepath, 'r') as f:
-            user_config = json.load(f)
-            config.update(user_config)
-    except (json.JSONDecodeError, IOError):
-        pass
-
+    
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                user_config = json.load(f)
+                config.update(user_config)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not read config file {file_path}: {e}")
+            
     return config
 
-def save_config(filepath: str, data: Dict[str, Any]) -> None:
-    """
-    Persists configuration dictionary to JSON file.
-    """
-    with open(filepath, 'w') as f:
-        json.dump(data, f, indent=4)
+def get_config_value(key: str, config: Dict[str, Any]) -> Any:
+    """Retrieves a value from the loaded config dictionary."""
+    return config.get(key, DEFAULT_CONFIG.get(key))
