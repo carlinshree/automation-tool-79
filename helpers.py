@@ -1,29 +1,45 @@
-import json
-import os
-from datetime import datetime
-from typing import Any, Dict, Optional
+"""Helper functions for common automation tasks."""
 
-def load_json_config(file_path: str) -> Dict[str, Any]:
-    """Load and parse a JSON configuration file."""
-    if not os.path.exists(file_path):
-        return {}
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+import time
+from typing import Callable, Any, List, TypeVar
 
-def save_json_config(file_path: str, data: Dict[str, Any]) -> None:
-    """Save data dictionary to a JSON file."""
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
+T = TypeVar("T")
 
-def get_timestamp_string() -> str:
-    """Return current UTC timestamp as ISO string."""
-    return datetime.utcnow().isoformat()
 
-def safe_get(dictionary: Dict, key: str, default: Any = None) -> Any:
-    """Safely retrieve value from nested dictionaries."""
-    return dictionary.get(key, default)
+def retry_operation(
+    func: Callable[..., T],
+    retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    *args: Any,
+    **kwargs: Any
+) -> T:
+    """Retry a function call with exponential backoff on failure."""
+    current_delay = delay
+    for attempt in range(1, retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as err:
+            if attempt == retries:
+                raise err
+            time.sleep(current_delay)
+            current_delay *= backoff
 
-def ensure_directory(path: str) -> None:
-    """Create directory if it does not exist."""
-    if not os.path.exists(path):
-        os.makedirs(path)
+
+def chunk_list(items: List[T], chunk_size: int) -> List[List[T]]:
+    """Split a list into smaller chunks of specified size."""
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be greater than zero")
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+
+def flatten_dict(d: dict, parent_key: str = "", sep: str = ".") -> dict:
+    """Flatten a nested dictionary into a single-level dictionary."""
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else str(k)
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
