@@ -1,40 +1,35 @@
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
-from typing import Any, Dict, List
+import logging
 
+logger = logging.getLogger(__name__)
 
-class BatchProcessor:
-    """Processes data payloads concurrently with result caching for high throughput."""
+def process_data(data: list) -> list:
+    """Processes input list with validation and error handling."""
+    if not isinstance(data, list):
+        logger.error(f"Invalid input type: {type(data)}")
+        return []
 
-    def __init__(self, max_workers: int = 4, batch_size: int = 100):
-        self.max_workers = max_workers
-        self.batch_size = batch_size
+    processed = []
+    for index, item in enumerate(data):
+        try:
+            if item is None:
+                raise ValueError("null value encountered")
+            processed.append(float(item) * 2)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Skipping item at index {index}: {e}")
+            continue
+    
+    return processed
 
-    @lru_cache(maxsize=1024)
-    def _cached_transform(self, item_key: str, raw_value: Any) -> Dict[str, Any]:
-        """Transform item data using LRU memoization to avoid redundant work."""
-        processed_val = hash(str(raw_value)) % 10000
-        return {"id": item_key, "result": processed_val, "status": "completed"}
-
-    def process_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single payload record using cached transformation logic."""
-        item_id = str(item.get("id", ""))
-        raw_data = item.get("data", "")
-        return self._cached_transform(item_id, raw_data)
-
-    def process_batch(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Execute optimized parallel execution across data chunks."""
-        results = []
-        
-        # Chunk workloads to minimize worker overhead
-        for i in range(0, len(items), self.batch_size):
-            chunk = items[i:i + self.batch_size]
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                chunk_results = list(executor.map(self.process_item, chunk))
-                results.extend(chunk_results)
-
-        return results
-
-    def clear_cache(self) -> None:
-        """Clear memoization cache to release unused memory buffers."""
-        self._cached_transform.cache_clear()
+def batch_transform(data_sequence: list) -> dict:
+    """Transforms sequences with robust error recovery."""
+    results = {"success": [], "errors": 0}
+    
+    for entry in data_sequence:
+        try:
+            transformed = process_data(entry)
+            results["success"].extend(transformed)
+        except Exception as e:
+            logger.critical(f"Unexpected system failure: {e}")
+            results["errors"] += 1
+            
+    return results
