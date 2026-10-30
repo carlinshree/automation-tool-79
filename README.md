@@ -1,17 +1,17 @@
 # automation-tool-79
 
-`automation-tool-79` is a modular Python-based utility designed to streamline repetitive filesystem and network tasks. It provides a lightweight command-line interface to orchestrate complex workflows with minimal configuration.
+`automation-tool-79` is a robust Python-based utility designed to streamline repetitive filesystem and workflow tasks through a modular command-line interface. It provides a reliable framework for automating data processing pipelines and local environment management with minimal configuration.
 
 ## Features
 
-*   **Task Scheduling:** Execute custom scripts at precise intervals using a non-blocking internal scheduler.
-*   **Log Aggregation:** Automatically captures, rotates, and formats console outputs into structured JSON log files.
-*   **Environment Sync:** Synchronize local directory structures with remote storage endpoints via robust API wrappers.
-*   **Plugin Architecture:** Extend core functionality by dropping custom `.py` modules into the `plugins/` directory.
+*   **Task Scheduling:** Execute complex Python scripts or shell commands at defined intervals using a lightweight background daemon.
+*   **Workflow Orchestration:** Define multi-step automation chains via YAML configuration files, ensuring sequential task execution and error handling.
+*   **Dynamic Logging:** Real-time progress tracking with integrated console output and log-to-file capabilities for audit trails.
+*   **Environment Agnostic:** Optimized for cross-platform execution on Linux, macOS, and Windows with zero dependency bloat.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. Clone the repository and install the required dependencies:
+Ensure you have Python 3.8+ installed. You can install the tool directly from source:
 
 ```bash
 git clone https://github.com/Developer/automation-tool-79.git
@@ -23,29 +23,21 @@ pip install -r requirements.txt
 
 ## Usage
 
-The tool operates via a YAML configuration file. Define your tasks in `config.yaml` and execute the runner:
+To run a pre-configured automation task, use the `run` command followed by the path to your config file:
 
 ```bash
-# Run a specific task defined in your config
-python main.py --task sync-assets --verbose
+# Execute a task configuration
+python main.py run --config configs/daily_backup.yaml
 
-# Run all scheduled tasks in background mode
-python main.py --daemonize
-```
-
-### Configuration Example (`config.yaml`)
-```yaml
-tasks:
-  sync-assets:
-    source: "./data"
-    target: "s3://bucket-name/uploads"
-    interval: 3600
+# Run in background mode with verbose output
+python main.py run --config configs/daily_backup.yaml --daemon --verbose
 ```
 
 ## Contributing
-Contributions are welcome. Please fork the repository and submit a pull request with unit tests covering your changes.
+We welcome contributions via Pull Requests. Please ensure all new features include unit tests within the `tests/` directory before submission.
 
 ## License
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 Distributed under the MIT License. See `LICENSE` for more information.
