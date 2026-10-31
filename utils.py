@@ -1,54 +1,50 @@
-from typing import Any, Dict, Generator, List
+"""Utility functions for general data manipulation and transformation."""
+
+from typing import Any, Dict, List, Union
 
 
 def flatten_dict(
     d: Dict[str, Any], parent_key: str = "", sep: str = "."
 ) -> Dict[str, Any]:
-    """Recursively flatten a nested dictionary using key separators."""
+    """Flatten a deeply nested dictionary using a separator for keys."""
     items: List[tuple] = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         if isinstance(v, dict):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
+        elif isinstance(v, list):
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    items.extend(
+                        flatten_dict(item, f"{new_key}{sep}{i}", sep=sep).items()
+                    )
+                else:
+                    items.append((f"{new_key}{sep}{i}", item))
         else:
             items.append((new_key, v))
     return dict(items)
 
 
-def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively merge two dictionaries, overriding dict1 with dict2 values."""
-    merged = dict1.copy()
-    for key, value in dict2.items():
-        if (
-            key in merged
-            and isinstance(merged[key], dict)
-            and isinstance(value, dict)
-        ):
-            merged[key] = deep_merge(merged[key], value)
+def deep_get(data: Dict[str, Any], path: str, default: Any = None, sep: str = ".") -> Any:
+    """Safely retrieve a value from a nested dictionary using a dot-separated path."""
+    keys = path.split(sep)
+    current = data
+    for key in keys:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        elif isinstance(current, list) and key.isdigit():
+            idx = int(key)
+            if 0 <= idx < len(current):
+                current = current[idx]
+            else:
+                return default
         else:
-            merged[key] = value
-    return merged
+            return default
+    return current
 
 
-def chunk_list(data: List[Any], chunk_size: int) -> Generator[List[Any], None, None]:
-    """Yield successive n-sized chunks from a list."""
-    if chunk_size <= 0:
-        raise ValueError("Chunk size must be greater than zero.")
-    for i in range(0, len(data), chunk_size):
-        yield data[i : i + chunk_size]
-
-
-def sanitize_keys(
-    d: Dict[str, Any], strip_whitespace: bool = True, lowercase: bool = False
-) -> Dict[str, Any]:
-    """Recursively sanitize dictionary keys by stripping whitespace or lowercasing."""
-    cleaned: Dict[str, Any] = {}
-    for key, value in d.items():
-        new_key = key.strip() if strip_whitespace else key
-        if lowercase:
-            new_key = new_key.lower()
-        if isinstance(value, dict):
-            cleaned[new_key] = sanitize_keys(value, strip_whitespace, lowercase)
-        else:
-            cleaned[new_key] = value
-    return cleaned
+def batch_iterable(data_list: List[Any], batch_size: int) -> List[List[Any]]:
+    """Split a list or iterable into smaller chunks of specified size."""
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero")
+    return [data_list[i : i + batch_size] for i in range(0, len(data_list), batch_size)]
