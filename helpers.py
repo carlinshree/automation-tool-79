@@ -1,46 +1,38 @@
-import os
-import shutil
-from pathlib import Path
-from typing import List, Union
+import re
+from datetime import datetime
+from typing import Any, Dict, List, Sequence, TypeVar
+
+T = TypeVar("T")
 
 
-def sanitize_path(path_input: Union[str, Path]) -> Path:
-    """Convert string path or Path to a resolved Path object."""
-    return Path(path_input).expanduser().resolve()
+def get_timestamp(prefix: str = "", suffix: str = "") -> str:
+    """Generate a standardized timestamp string for files or logs."""
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    parts = [p for p in (prefix, now, suffix) if p]
+    return "_".join(parts)
 
 
-def clean_empty_directories(root_dir: Union[str, Path]) -> List[Path]:
-    """Remove empty directories recursively starting from root_dir."""
-    target = sanitize_path(root_dir)
-    removed_dirs: List[Path] = []
-
-    if not target.exists() or not target.is_dir():
-        return removed_dirs
-
-    # Walk bottom-up to ensure nested empty dirs are handled
-    for dirpath, _, _ in os.walk(target, topdown=False):
-        current = Path(dirpath)
-        if current.is_dir() and not os.listdir(current) and current != target:
-            current.rmdir()
-            removed_dirs.append(current)
-
-    return removed_dirs
+def chunk_list(items: Sequence[T], chunk_size: int) -> List[Sequence[T]]:
+    """Split a sequence into smaller lists of specified chunk size."""
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be greater than 0")
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
 
-def reorganize_files_by_extension(source_dir: Union[str, Path]) -> int:
-    """Group files into subdirectories based on file extension."""
-    target = sanitize_path(source_dir)
-    if not target.exists() or not target.is_dir():
-        return 0
+def deep_get(data: Dict[str, Any], path: str, default: Any = None) -> Any:
+    """Retrieve nested values from a dictionary using dot notation (e.g., 'a.b.c')."""
+    keys = path.split(".")
+    current = data
+    for key in keys:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            return default
+    return current
 
-    moved_count = 0
-    for item in target.iterdir():
-        if item.is_file() and not item.name.startswith('.'):
-            ext = item.suffix.lower().lstrip('.') or 'no_extension'
-            dest_dir = target / ext
-            dest_dir.mkdir(exist_ok=True)
 
-            shutil.move(str(item), str(dest_dir / item.name))
-            moved_count += 1
-
-    return moved_count
+def sanitize_filename(name: str, replacement: str = "_") -> str:
+    """Sanitize string to be safe for filesystem usage."""
+    cleaned = re.sub(r'[\\/*?:"<>|]', replacement, name)
+    cleaned = re.sub(r"\s+", "_", cleaned)
+    return cleaned.strip("_")
