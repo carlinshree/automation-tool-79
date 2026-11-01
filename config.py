@@ -2,26 +2,35 @@ import json
 import os
 from typing import Any, Dict
 
-DEFAULT_CONFIG = {
-    "log_level": "INFO",
-    "max_retries": 3,
-    "timeout": 30
-}
+class ConfigLoader:
+    """Handles loading configuration from JSON files with fallback defaults."""
 
-def load_config(file_path: str = "config.json") -> Dict[str, Any]:
-    """Loads configuration from a JSON file with defaults."""
-    config = DEFAULT_CONFIG.copy()
-    
-    if os.path.exists(file_path):
+    DEFAULT_CONFIG = {
+        "log_level": "INFO",
+        "retries": 3,
+        "timeout": 30
+    }
+
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
+        self.config = self._load_config()
+
+    def _load_config(self) -> Dict[str, Any]:
+        """Loads configuration from file or returns defaults."""
+        if not os.path.exists(self.config_path):
+            return self.DEFAULT_CONFIG.copy()
+
         try:
-            with open(file_path, "r") as f:
+            with open(self.config_path, "r") as f:
                 user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Could not read config file {file_path}: {e}")
-            
-    return config
+                return {**self.DEFAULT_CONFIG, **user_config}
+        except (json.JSONDecodeError, IOError):
+            return self.DEFAULT_CONFIG.copy()
 
-def get_config_value(key: str, config: Dict[str, Any]) -> Any:
-    """Retrieves a value from the loaded config dictionary."""
-    return config.get(key, DEFAULT_CONFIG.get(key))
+    def get(self, key: str, default: Any = None) -> Any:
+        """Retrieves a value from the configuration."""
+        return self.config.get(key, default)
+
+if __name__ == "__main__":
+    loader = ConfigLoader()
+    print(f"Loaded log level: {loader.get('log_level')}")
