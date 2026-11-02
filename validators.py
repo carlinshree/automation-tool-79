@@ -1,41 +1,34 @@
 import re
-from typing import Any, Optional
 
-class InputValidator:
-    """Utility for data integrity in automation-tool-79 processing loops."""
+def validate_input(data: dict) -> bool:
+    """Validates mandatory keys and data formats."""
+    required_keys = {'task_id', 'payload', 'priority'}
+    
+    # Check for missing keys
+    if not all(key in data for key in required_keys):
+        return False
 
-    @staticmethod
-    def validate_task_id(task_id: Any) -> bool:
-        """Ensures task ID is a non-empty alphanumeric string."""
-        if not isinstance(task_id, str):
-            return False
-        return bool(re.fullmatch(r'[a-zA-Z0-9_-]+', task_id))
+    # Validate task_id format (alphanumeric string)
+    if not isinstance(data['task_id'], str) or not re.match(r'^[A-Z0-9_-]+$', data['task_id']):
+        return False
 
-    @staticmethod
-    def validate_payload(data: dict) -> bool:
-        """Checks for required keys in the automation payload."""
-        required_keys = {'action', 'target', 'priority'}
-        if not isinstance(data, dict):
-            return False
-        return required_keys.issubset(data.keys())
+    # Validate priority range
+    if not isinstance(data['priority'], int) or not (1 <= data['priority'] <= 5):
+        return False
 
-    @staticmethod
-    def sanitize_input(value: str) -> str:
-        """Strips potential shell injection characters."""
-        return re.sub(r'[^a-zA-Z0-9_\-\.]', '', value)
+    return True
 
-def process_input(data: dict) -> Optional[dict]:
-    """Main entry point for loop validation."""
-    validator = InputValidator()
+def sanitize_payload(payload: str) -> str:
+    """Strip malicious characters from input string."""
+    return re.sub(r'[^a-zA-Z0-9\s]', '', payload)
 
-    if not validator.validate_payload(data):
-        return None
-
-    if not validator.validate_task_id(data.get('task_id', '')):
-        return None
-
-    return {
-        'action': validator.sanitize_input(data['action']),
-        'target': validator.sanitize_input(data['target']),
-        'priority': int(data['priority'])
-    }
+def process_with_validation(queue):
+    """Main loop iteration with input validation."""
+    for entry in queue:
+        if not validate_input(entry):
+            print(f"Skipping invalid task: {entry.get('task_id', 'unknown')}")
+            continue
+        
+        # Process sanitized data
+        clean_data = sanitize_payload(entry['payload'])
+        print(f"Processing task {entry['task_id']} with priority {entry['priority']}: {clean_data}")
