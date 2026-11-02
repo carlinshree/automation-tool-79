@@ -1,54 +1,49 @@
-import os
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
 
 def setup_logger(
     name: str = "automation_tool",
     log_file: str = "logs/automation.log",
-    level: int = logging.INFO,
     max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5
+    backup_count: int = 5,
+    level: int = logging.INFO,
 ) -> logging.Logger:
-    """Configures and returns a logger with console and rotating file handlers."""
+    """Configures and returns a logger instance with console and rotating file handlers."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Prevent duplicate handlers if logger is configured multiple times
+    # Prevent handler duplication if function is called multiple times
     if logger.handlers:
         return logger
 
-    # Ensure log directory exists
-    log_dir = os.path.dirname(log_file)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+    log_formatter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Stream handler for console output
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
+    # Console Handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(log_formatter)
     logger.addHandler(console_handler)
 
-    # Rotating file handler for log retention
+    # Rotating File Handler
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
     file_handler = RotatingFileHandler(
-        log_file,
+        filename=log_path,
         maxBytes=max_bytes,
         backupCount=backup_count,
-        encoding="utf-8"
+        encoding="utf-8",
     )
-    file_handler.setLevel(level)
-    file_handler.setFormatter(formatter)
+    file_handler.setFormatter(log_formatter)
     logger.addHandler(file_handler)
 
     return logger
 
-def get_logger(name: str = "automation_tool") -> logging.Logger:
-    """Retrieves an existing logger or initializes default configuration."""
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        return setup_logger(name)
-    return logger
+
+# Initialize default module logger
+logger = setup_logger()
