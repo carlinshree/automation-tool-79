@@ -1,38 +1,45 @@
 import re
-from datetime import datetime
-from typing import Any, Dict, List, Sequence, TypeVar
-
-T = TypeVar("T")
 
 
-def get_timestamp(prefix: str = "", suffix: str = "") -> str:
-    """Generate a standardized timestamp string for files or logs."""
-    now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    parts = [p for p in (prefix, now, suffix) if p]
-    return "_".join(parts)
+def validate_input(data):
+    """
+    Validates input structure for automation tasks.
+    Ensures target and action are present.
+    """
+    if not isinstance(data, dict):
+        return False, "Input must be a dictionary"
+
+    target = data.get("target")
+    action = data.get("action")
+
+    if not target or not isinstance(target, str):
+        return False, "Invalid or missing target string"
+
+    if not action or action not in ["run", "stop", "restart"]:
+        return False, "Invalid action type"
+
+    return True, None
 
 
-def chunk_list(items: Sequence[T], chunk_size: int) -> List[Sequence[T]]:
-    """Split a sequence into smaller lists of specified chunk size."""
-    if chunk_size <= 0:
-        raise ValueError("chunk_size must be greater than 0")
-    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+def process_main_loop(queue):
+    """
+    Main processing loop with integrated validation.
+    """
+    for item in queue:
+        is_valid, error = validate_input(item)
+        if not is_valid:
+            print(f"Skipping invalid task: {error}")
+            continue
+
+        # Execute core business logic here
+        target = item['target']
+        print(f"Processing task: {item['action']} on {target}")
 
 
-def deep_get(data: Dict[str, Any], path: str, default: Any = None) -> Any:
-    """Retrieve nested values from a dictionary using dot notation (e.g., 'a.b.c')."""
-    keys = path.split(".")
-    current = data
-    for key in keys:
-        if isinstance(current, dict) and key in current:
-            current = current[key]
-        else:
-            return default
-    return current
-
-
-def sanitize_filename(name: str, replacement: str = "_") -> str:
-    """Sanitize string to be safe for filesystem usage."""
-    cleaned = re.sub(r'[\\/*?:"<>|]', replacement, name)
-    cleaned = re.sub(r"\s+", "_", cleaned)
-    return cleaned.strip("_")
+def sanitize_path(path):
+    """
+    Sanitizes paths to prevent directory traversal.
+    """
+    if not path or ".." in path:
+        return ""
+    return re.sub(r'[^a-zA-Z0-9_/.-]', '', path)
