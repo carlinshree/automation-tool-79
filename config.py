@@ -1,34 +1,60 @@
-import os
 import json
-from typing import Any, Dict
+import os
+from typing import Any, Dict, Optional
 
-DEFAULT_CONFIG = {
-    "timeout": 30,
-    "retries": 3,
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "app_name": "automation-tool-79",
+    "version": "1.0.0",
+    "debug": False,
     "log_level": "INFO",
-    "enabled": True
+    "max_retries": 3,
+    "timeout": 30,
+    "output_dir": "./output",
 }
 
-def load_config(file_path: str = "config.json") -> Dict[str, Any]:
-    """Load configuration from file, merging with default values."""
-    config = DEFAULT_CONFIG.copy()
-    
-    if os.path.exists(file_path):
+
+class ConfigLoader:
+    """Loads configuration settings from files with default fallbacks."""
+
+    def __init__(self, config_path: Optional[str] = None):
+        self.config_path = config_path
+        self._config: Dict[str, Any] = DEFAULT_CONFIG.copy()
+        if config_path:
+            self.load()
+
+    def load(self) -> Dict[str, Any]:
+        """Loads configuration from a JSON file and merges with defaults."""
+        if not self.config_path or not os.path.exists(self.config_path):
+            return self._config
+
         try:
-            with open(file_path, "r") as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Could not read config file {file_path}: {e}")
-    
-    return config
+                if isinstance(user_config, dict):
+                    self._config.update(user_config)
+        except (json.JSONDecodeError, OSError) as err:
+            print(f"Warning: Failed to load config from {self.config_path}: {err}")
 
-def get_setting(key: str, default_fallback: Any = None) -> Any:
-    """Retrieve specific setting from the loaded environment."""
-    config = load_config()
-    return config.get(key, default_fallback)
+        return self._config
 
-if __name__ == "__main__":
-    # Example usage for automation-tool-79
-    current_config = load_config()
-    print(f"Active configuration: {current_config}")
+    def get(self, key: str, default: Any = None) -> Any:
+        """Retrieve a configuration value by key."""
+        return self._config.get(key, default)
+
+    def set(self, key: str, value: Any) -> None:
+        """Set or update a configuration setting."""
+        self._config[key] = value
+
+    def save(self, target_path: Optional[str] = None) -> bool:
+        """Save current configuration to a JSON file."""
+        path = target_path or self.config_path
+        if not path:
+            return False
+
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self._config, f, indent=4)
+            return True
+        except OSError:
+            return False
