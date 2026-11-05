@@ -1,45 +1,38 @@
-import re
+import os
+import shutil
+import logging
+from typing import List
 
+logger = logging.getLogger(__name__)
 
-def validate_input(data):
-    """
-    Validates input structure for automation tasks.
-    Ensures target and action are present.
-    """
-    if not isinstance(data, dict):
-        return False, "Input must be a dictionary"
+def clean_temp_directories(paths: List[str]) -> None:
+    """Removes temporary files and directories to free space."""
+    for path in paths:
+        if os.path.exists(path):
+            try:
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                logger.info(f"Successfully removed: {path}")
+            except OSError as e:
+                logger.error(f"Failed to delete {path}: {e}")
 
-    target = data.get("target")
-    action = data.get("action")
+def organize_project_files(target_dir: str, extensions: List[str]) -> None:
+    """Groups files by extension into subdirectories."""
+    if not os.path.exists(target_dir):
+        return
 
-    if not target or not isinstance(target, str):
-        return False, "Invalid or missing target string"
+    for filename in os.listdir(target_dir):
+        ext = filename.split('.')[-1].lower()
+        if ext in extensions:
+            dest_folder = os.path.join(target_dir, ext)
+            os.makedirs(dest_folder, exist_ok=True)
+            shutil.move(
+                os.path.join(target_dir, filename),
+                os.path.join(dest_folder, filename)
+            )
 
-    if not action or action not in ["run", "stop", "restart"]:
-        return False, "Invalid action type"
-
-    return True, None
-
-
-def process_main_loop(queue):
-    """
-    Main processing loop with integrated validation.
-    """
-    for item in queue:
-        is_valid, error = validate_input(item)
-        if not is_valid:
-            print(f"Skipping invalid task: {error}")
-            continue
-
-        # Execute core business logic here
-        target = item['target']
-        print(f"Processing task: {item['action']} on {target}")
-
-
-def sanitize_path(path):
-    """
-    Sanitizes paths to prevent directory traversal.
-    """
-    if not path or ".." in path:
-        return ""
-    return re.sub(r'[^a-zA-Z0-9_/.-]', '', path)
+def validate_path_safety(path: str) -> bool:
+    """Ensures path operations stay within intended scope."""
+    return not path.startswith('..') and os.path.isabs(path)
