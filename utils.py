@@ -1,53 +1,56 @@
+import time
 import functools
 import logging
-import random
-import time
-from typing import Any, Callable, Tuple, Type
+from typing import Callable, Any, Tuple, Type
 
 logger = logging.getLogger(__name__)
 
 
-def retry_operation(
+def retry_network_operation(
     max_retries: int = 3,
-    initial_delay: float = 1.0,
+    delay: float = 1.0,
     backoff_factor: float = 2.0,
-    jitter: bool = True,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
 ) -> Callable:
-    """Decorator that retries a function if it raises specified exceptions.
-
-    Implements exponential backoff with optional random jitter.
+    """
+    Decorator that retries a network operation with exponential backoff.
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            delay = initial_delay
+            current_delay = delay
             for attempt in range(1, max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except exceptions as err:
+                except exceptions as exc:
                     if attempt == max_retries:
                         logger.error(
-                            "Operation %s failed after %d attempts: %s",
-                            func.__name__,
-                            max_retries,
-                            err,
+                            "Operation '%s' failed after %d attempts: %s",
+                            func.__name__, max_retries, exc
                         )
                         raise
-
-                    sleep_time = delay
-                    if jitter:
-                        sleep_time += random.uniform(0, delay * 0.1)
-
                     logger.warning(
-                        "Attempt %d/%d for %s failed (%s). Retrying in %.2fs...",
-                        attempt,
-                        max_retries,
-                        func.__name__,
-                        err,
-                        sleep_time,
+                        "Attempt %d/%d for '%s' failed: %s. Retrying in %.2fs...",
+                        attempt, max_retries, func.__name__, exc, current_delay
                     )
-                    time.sleep(sleep_time)
-                    delay *= backoff_factor
+                    time.sleep(current_delay)
+                    current_delay *= backoff_factor
         return wrapper
     return decorator
+
+
+def execute_with_retry(
+    func: Callable,
+    *args: Any,
+    max_retries: int = 3,
+    delay: float = 1.0,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+    **kwargs: Any
+) -> Any:
+    """Executes a given callable using retry backoff logic."""
+    retry_decorator = retry_network_operation(
+        max_retries=max_retries,
+        delay=delay,
+        exceptions=exceptions
+    )
+    return retry_decorator(func)(*args, **kwargs)
