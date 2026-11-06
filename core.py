@@ -1,46 +1,36 @@
-import functools
-import time
 import logging
-from typing import Callable, Any
 
-# Configure logger for core operations
-logger = logging.getLogger('automation-tool-79')
+def process_input(user_input):
+    """Validate and process individual input string."""
+    if not isinstance(user_input, str):
+        raise ValueError("input must be a string")
+    
+    stripped = user_input.strip()
+    if not stripped:
+        raise ValueError("input cannot be empty or whitespace")
+    
+    return stripped.upper()
 
-CACHE_SIZE = 128
-
-def memoize_with_ttl(ttl_seconds: int = 60):
-    """Decorator for caching function results with a time-to-live limit."""
-    def decorator(func: Callable):
-        cache = {}
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            key = (args, frozenset(kwargs.items()))
-            now = time.time()
+def run_main_loop(data_list):
+    """
+    Main processing loop with integrated input validation.
+    Handles iteration over raw data and processes valid entries.
+    """
+    processed_results = []
+    
+    for item in data_list:
+        try:
+            validated = process_input(item)
+            processed_results.append(validated)
+            logging.info(f"successfully processed: {validated}")
+        except (ValueError, TypeError) as e:
+            logging.warning(f"skipping invalid item {item}: {e}")
+            continue
             
-            if key in cache:
-                result, timestamp = cache[key]
-                if now - timestamp < ttl_seconds:
-                    return result
-            
-            result = func(*args, **kwargs)
-            cache[key] = (result, now)
-            return result
-        return wrapper
-    return decorator
+    return processed_results
 
-class DataProcessor:
-    """Core processor class optimized for high-frequency tasks."""
-    def __init__(self):
-        self._buffer = []
-
-    @memoize_with_ttl(ttl_seconds=30)
-    def fetch_resource_metadata(self, resource_id: str) -> dict:
-        """Simulates metadata fetch with TTL-based caching for performance."""
-        logger.debug(f"Fetching metadata for {resource_id}")
-        time.sleep(0.5)  # Simulate I/O latency
-        return {"id": resource_id, "status": "active", "timestamp": time.time()}
-
-    def batch_process(self, items: list) -> list:
-        """Vectorized-style approach for list processing to reduce overhead."""
-        return [self.fetch_resource_metadata(item) for item in items]
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    test_data = ["task1", "", 123, "task2", "  "]
+    results = run_main_loop(test_data)
+    print(f"Final list: {results}")
