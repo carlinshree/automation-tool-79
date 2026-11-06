@@ -1,45 +1,47 @@
 import logging
-import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 
 
-class TaskHandler:
-    """Handles task execution with retry logic and edge case safety checks."""
+def validate_payload(item: Dict[str, Any]) -> Tuple[bool, str]:
+    """Validate an individual item payload before processing."""
+    if not isinstance(item, dict):
+        return False, "Item must be a dictionary"
+    
+    if "id" not in item or not item["id"]:
+        return False, "Missing or empty 'id' field"
+    
+    if "task" not in item or not isinstance(item["task"], str):
+        return False, "Invalid or missing 'task' string"
+    
+    if "data" in item and not isinstance(item["data"], (dict, list)):
+        return False, "'data' field must be a dict or list"
+    
+    return True, ""
 
-    def __init__(self, max_retries: int = 3, backoff_factor: float = 0.5):
-        self.max_retries = max(0, max_retries)
-        self.backoff_factor = max(0.1, backoff_factor)
 
-    def safe_execute(self, func: Callable[..., Any], payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Executes a callable safely, handling null payloads, bad types, and unexpected errors."""
-        if payload is None:
-            payload = {}
-        elif not isinstance(payload, dict):
-            logger.error(f"Invalid payload type: expected dict, got {type(payload).__name__}")
-            return {"success": False, "error": "Invalid payload format", "result": None}
+def process_queue(queue: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Process queue items with strict input validation in the main loop."""
+    summary: Dict[str, List[Dict[str, Any]]] = {"completed": [], "rejected": []}
 
-        attempts = 0
-        last_error: Optional[Exception] = None
+    for item in queue:
+        is_valid, reason = validate_payload(item)
+        if not is_valid:
+            logger.warning("Rejecting invalid item: %s", reason)
+            summary["rejected"].append({"item": item, "reason": reason})
+            continue
 
-        while attempts <= self.max_retries:
-            try:
-                result = func(**payload)
-                return {"success": True, "error": None, "result": result}
-            except TypeError as err:
-                # Catch signature or keyword parameter mismatches
-                logger.warning(f"Parameter mismatch during execution of '{func.__name__}': {err}")
-                return {"success": False, "error": f"Parameter error: {err}", "result": None}
-            except Exception as err:
-                attempts += 1
-                last_error = err
-                logger.error(f"Attempt {attempts} failed for '{func.__name__}': {err}")
-                if attempts <= self.max_retries:
-                    time.sleep(self.backoff_factor * (2 ** (attempts - 1)))
+        try:
+            item_id = str(item["id"])
+            task = item["task"].strip().lower()
+            payload = item.get("data", {})
 
-        return {
-            "success": False,
-            "error": f"Execution exhausted retries: {last_error}",
-            "result": None,
-        }
+            # Execute task payload handling
+            result = {"id": item_id, "task": task, "status": "executed", "payload": payload}
+            summary["completed"].append(result)
+        except Exception as err:
+            logger.error("Error executing task for item %s: %s", item.get("id"), err)
+            summary["rejected"].append({"item": item, "reason": str(err)})
+
+    return summary
