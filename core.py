@@ -1,36 +1,67 @@
 import logging
+from typing import Any, Dict, List
 
-def process_input(user_input):
-    """Validate and process individual input string."""
-    if not isinstance(user_input, str):
-        raise ValueError("input must be a string")
-    
-    stripped = user_input.strip()
-    if not stripped:
-        raise ValueError("input cannot be empty or whitespace")
-    
-    return stripped.upper()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-def run_main_loop(data_list):
-    """
-    Main processing loop with integrated input validation.
-    Handles iteration over raw data and processes valid entries.
-    """
-    processed_results = []
-    
-    for item in data_list:
-        try:
-            validated = process_input(item)
-            processed_results.append(validated)
-            logging.info(f"successfully processed: {validated}")
-        except (ValueError, TypeError) as e:
-            logging.warning(f"skipping invalid item {item}: {e}")
+
+def validate_task_payload(data: Dict[str, Any]) -> bool:
+    """Validate task dictionary structure and types before processing."""
+    if not isinstance(data, dict):
+        logging.warning("Invalid input: payload is not a dictionary.")
+        return False
+
+    required_keys = {"task_id", "action", "params"}
+    if not required_keys.issubset(data.keys()):
+        missing = required_keys - set(data.keys())
+        logging.warning(f"Invalid input: missing required keys: {missing}")
+        return False
+
+    if not isinstance(data["task_id"], (int, str)) or not str(data["task_id"]).strip():
+        logging.warning("Invalid input: task_id must be a non-empty string or integer.")
+        return False
+
+    if not isinstance(data["params"], dict):
+        logging.warning("Invalid input: params must be a dictionary.")
+        return False
+
+    return True
+
+
+def execute_task(task: Dict[str, Any]) -> bool:
+    """Simulate execution of a validated automation task."""
+    logging.info(f"Executing task '{task['task_id']}' with action '{task['action']}'")
+    return True
+
+
+def run_processing_loop(batch_data: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Process a batch of automation tasks with strict input validation."""
+    stats = {"processed": 0, "skipped": 0, "failed": 0}
+
+    for item in batch_data:
+        # Input validation guard
+        if not validate_task_payload(item):
+            stats["skipped"] += 1
             continue
-            
-    return processed_results
+
+        try:
+            success = execute_task(item)
+            if success:
+                stats["processed"] += 1
+            else:
+                stats["failed"] += 1
+        except Exception as err:
+            logging.error(f"Error processing task {item.get('task_id')}: {err}")
+            stats["failed"] += 1
+
+    return stats
+
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    test_data = ["task1", "", 123, "task2", "  "]
-    results = run_main_loop(test_data)
-    print(f"Final list: {results}")
+    sample_tasks = [
+        {"task_id": "T-101", "action": "backup", "params": {"target": "/data"}},
+        {"task_id": "", "action": "cleanup", "params": {}},
+        "invalid_item",
+        {"task_id": 102, "action": "sync", "params": {"retries": 3}},
+    ]
+    results = run_processing_loop(sample_tasks)
+    logging.info(f"Batch processing completed: {results}")
