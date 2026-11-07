@@ -1,46 +1,31 @@
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "app_name": "automation-tool-79",
+DEFAULT_CONFIG = {
     "log_level": "INFO",
     "max_retries": 3,
-    "timeout": 30,
-    "enable_telemetry": False,
-    "output_dir": "./output",
+    "timeout": 30.0,
+    "data_path": "./data"
 }
 
+def load_config(file_path: str = "config.json") -> Dict[str, Any]:
+    """Loads configuration from json file or returns defaults."""
+    config = DEFAULT_CONFIG.copy()
 
-class ConfigLoader:
-    """Handles loading configuration settings with fallback defaults."""
+    if not os.path.exists(file_path):
+        return config
 
-    def __init__(self, config_path: Optional[str] = None):
-        self.config_path = config_path
-        self._config: Dict[str, Any] = DEFAULT_CONFIG.copy()
-        self._load_config()
+    try:
+        with open(file_path, "r") as f:
+            user_config = json.load(f)
+            config.update(user_config)
+    except (json.JSONDecodeError, IOError):
+        pass
 
-    def _load_config(self) -> None:
-        """Load settings from JSON file and environment variables."""
-        if self.config_path and os.path.exists(self.config_path):
-            try:
-                with open(self.config_path, "r", encoding="utf-8") as f:
-                    file_config = json.load(f)
-                    if isinstance(file_config, dict):
-                        self._config.update(file_config)
-            except (json.JSONDecodeError, OSError):
-                pass
+    return config
 
-        # Override settings using environment variables if present
-        for key in self._config:
-            env_key = f"APP_{key.upper()}"
-            if env_key in os.environ:
-                self._config[key] = os.environ[env_key]
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Retrieve a configuration value by key."""
-        return self._config.get(key, default)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Return a copy of the active configuration dict."""
-        return self._config.copy()
+def get_setting(key: str, default: Any = None) -> Any:
+    """Helper to retrieve a specific setting value."""
+    config = load_config()
+    return config.get(key, default)
