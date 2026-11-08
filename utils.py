@@ -1,45 +1,29 @@
-import json
-import os
-from typing import Any, Dict, Optional
+import time
+import functools
+import requests
+from typing import Callable, Any
 
-def load_json_file(file_path: str) -> Dict[str, Any]:
-    """Loads data from a json file with existence checks."""
-    if not os.path.exists(file_path):
-        return {}
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return {}
+def with_retry(max_attempts: int = 3, delay: float = 1.0):
+    """Decorator to retry network operations on request failures."""
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except requests.exceptions.RequestException as e:
+                    last_exception = e
+                    if attempt < max_attempts - 1:
+                        time.sleep(delay * (2 ** attempt))
+                        continue
+            raise last_exception
+        return wrapper
+    return decorator
 
-def save_json_file(file_path: str, data: Dict[str, Any]) -> bool:
-    """Writes dictionary data to a json file."""
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
-        return True
-    except IOError:
-        return False
-
-def sanitize_dict_keys(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively ensures all dictionary keys are strings."""
-    new_data = {}
-    for key, value in data.items():
-        new_key = str(key)
-        if isinstance(value, dict):
-            new_data[new_key] = sanitize_dict_keys(value)
-        else:
-            new_data[new_key] = value
-    return new_data
-
-def get_nested_value(data: Dict[str, Any], path: str, delimiter: str = '.') -> Optional[Any]:
-    """Retrieves value from nested dictionary using path string."""
-    keys = path.split(delimiter)
-    current = data
-    for key in keys:
-        if isinstance(current, dict) and key in current:
-            current = current[key]
-        else:
-            return None
-    return current
+@with_retry(max_attempts=3, delay=2.0)
+def fetch_url(url: str) -> str:
+    """Fetches content from a URL with built-in retry logic."""
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.text
