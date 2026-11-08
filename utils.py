@@ -1,56 +1,45 @@
-import time
-import functools
-import logging
-from typing import Callable, Any, Tuple, Type
+import json
+import os
+from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+def load_json_file(file_path: str) -> Dict[str, Any]:
+    """Loads data from a json file with existence checks."""
+    if not os.path.exists(file_path):
+        return {}
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
 
+def save_json_file(file_path: str, data: Dict[str, Any]) -> bool:
+    """Writes dictionary data to a json file."""
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+        return True
+    except IOError:
+        return False
 
-def retry_network_operation(
-    max_retries: int = 3,
-    delay: float = 1.0,
-    backoff_factor: float = 2.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
-) -> Callable:
-    """
-    Decorator that retries a network operation with exponential backoff.
-    """
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as exc:
-                    if attempt == max_retries:
-                        logger.error(
-                            "Operation '%s' failed after %d attempts: %s",
-                            func.__name__, max_retries, exc
-                        )
-                        raise
-                    logger.warning(
-                        "Attempt %d/%d for '%s' failed: %s. Retrying in %.2fs...",
-                        attempt, max_retries, func.__name__, exc, current_delay
-                    )
-                    time.sleep(current_delay)
-                    current_delay *= backoff_factor
-        return wrapper
-    return decorator
+def sanitize_dict_keys(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively ensures all dictionary keys are strings."""
+    new_data = {}
+    for key, value in data.items():
+        new_key = str(key)
+        if isinstance(value, dict):
+            new_data[new_key] = sanitize_dict_keys(value)
+        else:
+            new_data[new_key] = value
+    return new_data
 
-
-def execute_with_retry(
-    func: Callable,
-    *args: Any,
-    max_retries: int = 3,
-    delay: float = 1.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
-    **kwargs: Any
-) -> Any:
-    """Executes a given callable using retry backoff logic."""
-    retry_decorator = retry_network_operation(
-        max_retries=max_retries,
-        delay=delay,
-        exceptions=exceptions
-    )
-    return retry_decorator(func)(*args, **kwargs)
+def get_nested_value(data: Dict[str, Any], path: str, delimiter: str = '.') -> Optional[Any]:
+    """Retrieves value from nested dictionary using path string."""
+    keys = path.split(delimiter)
+    current = data
+    for key in keys:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            return None
+    return current
