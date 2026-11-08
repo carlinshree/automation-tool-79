@@ -1,67 +1,36 @@
 import logging
-from typing import Any, Dict, List
+import os
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('automation-tool-79')
 
+class AutomationCore:
+    def __init__(self, config_path):
+        self.config_path = config_path
 
-def validate_task_payload(data: Dict[str, Any]) -> bool:
-    """Validate task dictionary structure and types before processing."""
-    if not isinstance(data, dict):
-        logging.warning("Invalid input: payload is not a dictionary.")
-        return False
-
-    required_keys = {"task_id", "action", "params"}
-    if not required_keys.issubset(data.keys()):
-        missing = required_keys - set(data.keys())
-        logging.warning(f"Invalid input: missing required keys: {missing}")
-        return False
-
-    if not isinstance(data["task_id"], (int, str)) or not str(data["task_id"]).strip():
-        logging.warning("Invalid input: task_id must be a non-empty string or integer.")
-        return False
-
-    if not isinstance(data["params"], dict):
-        logging.warning("Invalid input: params must be a dictionary.")
-        return False
-
-    return True
-
-
-def execute_task(task: Dict[str, Any]) -> bool:
-    """Simulate execution of a validated automation task."""
-    logging.info(f"Executing task '{task['task_id']}' with action '{task['action']}'")
-    return True
-
-
-def run_processing_loop(batch_data: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Process a batch of automation tasks with strict input validation."""
-    stats = {"processed": 0, "skipped": 0, "failed": 0}
-
-    for item in batch_data:
-        # Input validation guard
-        if not validate_task_payload(item):
-            stats["skipped"] += 1
-            continue
-
+    def execute_task(self, data: dict):
+        """Process automation tasks with robust error boundary."""
         try:
-            success = execute_task(item)
-            if success:
-                stats["processed"] += 1
-            else:
-                stats["failed"] += 1
-        except Exception as err:
-            logging.error(f"Error processing task {item.get('task_id')}: {err}")
-            stats["failed"] += 1
+            if not data or not isinstance(data, dict):
+                raise ValueError("Invalid input data format")
+            
+            if not os.path.exists(self.config_path):
+                raise FileNotFoundError(f"Config missing at {self.config_path}")
 
-    return stats
+            # Simulate core operational logic
+            result = data.get('payload') / data.get('divisor', 1)
+            return {"status": "success", "value": result}
 
+        except ZeroDivisionError:
+            logger.error("Calculation failure: division by zero")
+            return {"status": "error", "message": "invalid divisor"}
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Input validation error: {e}")
+            return {"status": "error", "message": str(e)}
+        except Exception as e:
+            logger.critical(f"Unexpected system failure: {e}", exc_info=True)
+            return {"status": "critical", "message": "internal system failure"}
 
-if __name__ == "__main__":
-    sample_tasks = [
-        {"task_id": "T-101", "action": "backup", "params": {"target": "/data"}},
-        {"task_id": "", "action": "cleanup", "params": {}},
-        "invalid_item",
-        {"task_id": 102, "action": "sync", "params": {"retries": 3}},
-    ]
-    results = run_processing_loop(sample_tasks)
-    logging.info(f"Batch processing completed: {results}")
+def run_automation(data):
+    engine = AutomationCore('config.yaml')
+    return engine.execute_task(data)
