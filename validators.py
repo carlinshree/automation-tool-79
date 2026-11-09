@@ -1,25 +1,48 @@
-import re
-from typing import Any, Optional
+"""Input validation utilities for automation processing loop."""
 
-def is_valid_email(email: str) -> bool:
-    """Verify email address format using regex."""
-    pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-    return bool(re.match(pattern, email))
+from typing import Any, Dict, List, Optional, Tuple
 
-def is_non_empty_string(value: Any) -> bool:
-    """Check if input is a string and not blank."""
-    return isinstance(value, str) and len(value.strip()) > 0
 
-def validate_range(value: int, min_val: int, max_val: int) -> bool:
-    """Check if integer resides within inclusive bounds."""
-    return min_val <= value <= max_val
+class ValidationError(Exception):
+    """Raised when processing input fails validation criteria."""
+    pass
 
-def sanitize_input(value: Optional[str]) -> str:
-    """Remove whitespace and return empty string if None."""
-    if not value:
-        return ""
-    return str(value).strip()
 
-def validate_structure(data: dict, required_keys: list) -> bool:
-    """Ensure dictionary contains all necessary keys."""
-    return all(key in data for key in required_keys)
+def validate_task_payload(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """Validate an individual task payload before processing."""
+    if not isinstance(data, dict):
+        return False, "Payload must be a dictionary"
+
+    required_fields = ["id", "action", "params"]
+    for field in required_fields:
+        if field not in data:
+            return False, f"Missing required field: '{field}'"
+
+    if not isinstance(data["id"], (str, int)) or not str(data["id"]).strip():
+        return False, "Task ID must be a non-empty string or integer"
+
+    allowed_actions = ["clean", "transform", "export", "notify"]
+    if data["action"] not in allowed_actions:
+        return False, f"Invalid action '{data['action']}'. Must be one of {allowed_actions}"
+
+    if not isinstance(data["params"], dict):
+        return False, "Params field must be a dictionary"
+
+    return True, None
+
+
+def validate_batch_input(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Validate a batch of task inputs, returning only valid items."""
+    if not isinstance(batch, list):
+        raise ValidationError("Batch input must be a list of task objects")
+
+    valid_items = []
+    for index, item in enumerate(batch):
+        is_valid, error_msg = validate_task_payload(item)
+        if is_valid:
+            valid_items.append(item)
+        else:
+            # Skip invalid items during processing loop
+            continue
+
+    return valid_items
