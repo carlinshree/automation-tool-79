@@ -1,49 +1,53 @@
-import concurrent.futures
-from functools import lru_cache
-from typing import Any, Callable, Iterable, List
+"""Data processing utilities for automation pipelines."""
+
+from typing import Any, Dict, List, Optional
 
 
 class BatchProcessor:
-    """Optimized concurrent batch processor for automated tasks."""
+    """Processes datasets in configurable batches with optional transformation."""
 
-    def __init__(self, max_workers: int = 4, chunk_size: int = 100):
-        self.max_workers = max_workers
-        self.chunk_size = chunk_size
+    def __init__(self, batch_size: int = 100, drop_invalid: bool = True) -> None:
+        """Initialize the processor with batch size and validation settings."""
+        self.batch_size: int = max(1, batch_size)
+        self.drop_invalid: bool = drop_invalid
+        self.processed_count: int = 0
+        self.errors: List[Dict[str, Any]] = []
 
-    @lru_cache(maxsize=1024)
-    def _cached_transform(self, item: str) -> str:
-        """Cached helper to eliminate redundant string normalization."""
-        return item.strip().lower()
+    def validate_item(self, item: Dict[str, Any]) -> bool:
+        """Check if an item contains required structure and non-empty key fields."""
+        if not isinstance(item, dict):
+            return False
+        return bool(item.get("id") and "data" in item)
 
-    def _chunk_iterable(self, items: Iterable[Any]) -> Iterable[List[Any]]:
-        """Yield successive chunks from input iterable to optimize memory usage."""
-        chunk = []
-        for item in items:
-            chunk.append(item)
-            if len(chunk) == self.chunk_size:
-                yield chunk
-                chunk = []
-        if chunk:
-            yield chunk
+    def process_batch(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Process a chunk of data items and collect error reports.
 
-    def process_items(
-        self, items: List[Any], func: Callable[[Any], Any]
-    ) -> List[Any]:
-        """Process items concurrently in chunked batches to improve throughput."""
-        if not items:
-            return []
+        Args:
+            items: A list of record dictionaries to process.
 
-        results: List[Any] = []
-        prepared_items = [
-            self._cached_transform(item) if isinstance(item, str) else item
-            for item in items
-        ]
+        Returns:
+            A list of successfully processed record dictionaries.
+        """
+        results: List[Dict[str, Any]] = []
+        for index, item in enumerate(items):
+            if not self.validate_item(item):
+                self.errors.append({"index": index, "item": item, "reason": "Validation failed"})
+                if self.drop_invalid:
+                    continue
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.max_workers
-        ) as executor:
-            for chunk in self._chunk_iterable(prepared_items):
-                chunk_results = list(executor.map(func, chunk))
-                results.extend(chunk_results)
+            transformed = self._transform_item(item)
+            results.append(transformed)
+            self.processed_count += 1
 
         return results
+
+    def _transform_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply internal transformations to a single item."""
+        cleaned = item.copy()
+        cleaned["processed"] = True
+        cleaned["status"] = str(cleaned.get("status", "pending")).upper()
+        return cleaned
+
+    def split_into_batches(self, items: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        """Split a large list into uniform batch sizes."""
+        return [items[i : i + self.batch_size] for i in range(0, len(items), self.batch_size)]
