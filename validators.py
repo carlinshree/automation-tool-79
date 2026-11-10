@@ -1,48 +1,31 @@
-"""Input validation utilities for automation processing loop."""
+import re
+from typing import Any, Optional
 
-from typing import Any, Dict, List, Optional, Tuple
+# regex patterns for validation
+EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
 
+def validate_email(email: str) -> bool:
+    """verify email format correctness"""
+    return bool(EMAIL_REGEX.match(email))
+
+def validate_non_empty(value: Any) -> bool:
+    """check if provided input is not empty"""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return len(value.strip()) > 0
+    return bool(value)
+
+def sanitize_input(value: str) -> str:
+    """strip whitespace and clean string input"""
+    return str(value).strip()
 
 class ValidationError(Exception):
-    """Raised when processing input fails validation criteria."""
+    """custom exception for validation failures"""
     pass
 
-
-def validate_task_payload(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-    """Validate an individual task payload before processing."""
-    if not isinstance(data, dict):
-        return False, "Payload must be a dictionary"
-
-    required_fields = ["id", "action", "params"]
-    for field in required_fields:
-        if field not in data:
-            return False, f"Missing required field: '{field}'"
-
-    if not isinstance(data["id"], (str, int)) or not str(data["id"]).strip():
-        return False, "Task ID must be a non-empty string or integer"
-
-    allowed_actions = ["clean", "transform", "export", "notify"]
-    if data["action"] not in allowed_actions:
-        return False, f"Invalid action '{data['action']}'. Must be one of {allowed_actions}"
-
-    if not isinstance(data["params"], dict):
-        return False, "Params field must be a dictionary"
-
-    return True, None
-
-
-def validate_batch_input(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Validate a batch of task inputs, returning only valid items."""
-    if not isinstance(batch, list):
-        raise ValidationError("Batch input must be a list of task objects")
-
-    valid_items = []
-    for index, item in enumerate(batch):
-        is_valid, error_msg = validate_task_payload(item)
-        if is_valid:
-            valid_items.append(item)
-        else:
-            # Skip invalid items during processing loop
-            continue
-
-    return valid_items
+def assert_valid_email(email: Optional[str]) -> str:
+    """raise exception if email is invalid"""
+    if not email or not validate_email(email):
+        raise ValidationError(f"Invalid email format: {email}")
+    return email
