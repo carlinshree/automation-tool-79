@@ -1,28 +1,29 @@
-from typing import List, Optional, Union
+import json
 import os
+from datetime import datetime
+from typing import Any, Dict, Optional
 
-def get_file_list(directory: str, extension: str = ".txt") -> List[str]:
-    """Retrieve filtered list of files from a directory."""
+def load_json(filepath: str) -> Dict[str, Any]:
+    """Load configuration from a JSON file."""
+    if not os.path.exists(filepath):
+        return {}
+    with open(filepath, 'r') as f:
+        return json.load(f)
+
+def save_json(filepath: str, data: Dict[str, Any]) -> None:
+    """Save dictionary data to a JSON file."""
+    with open(filepath, 'w') as f:
+        json.dump(data, f, indent=4)
+
+def get_timestamp() -> str:
+    """Return current ISO formatted timestamp."""
+    return datetime.now().isoformat()
+
+def ensure_dir(directory: str) -> None:
+    """Create directory if it does not exist."""
     if not os.path.exists(directory):
-        return []
+        os.makedirs(directory)
 
-    files = [f for f in os.listdir(directory) if f.endswith(extension)]
-    return sorted(files)
-
-def format_data_size(size_bytes: Union[int, float]) -> str:
-    """Convert bytes into a human-readable string format."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.2f} {unit}"
-        size_bytes /= 1024.0
-    return f"{size_bytes:.2f} TB"
-
-def sanitize_input(value: Optional[str]) -> str:
-    """Clean string input by stripping whitespace and handling None."""
-    if value is None:
-        return ""
-    return value.strip().replace("\t", " ")
-
-def validate_path(path: str) -> bool:
-    """Check if provided path is valid and accessible."""
-    return os.path.isabs(path) and os.path.exists(os.path.dirname(path))
+def sanitize_filename(filename: str) -> str:
+    """Basic sanitization for safe file names."""
+    return "".join([c for c in filename if c.isalnum() or c in (' ', '.', '_')]).rstrip()
