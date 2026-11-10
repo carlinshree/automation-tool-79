@@ -1,43 +1,57 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # automation-tool-79
 
-`automation-tool-79` is a robust Python-based utility designed to streamline repetitive filesystem and workflow tasks through a modular command-line interface. It provides a reliable framework for automating data processing pipelines and local environment management with minimal configuration.
+`automation-tool-79` is a lightweight Python engine designed to streamline recursive file processing, batch data transformations, and scheduled system maintenance workflows. It provides a clean command-line interface and an extensible API to eliminate repetitive operational tasks without introducing heavy external dependencies.
 
 ## Features
 
-*   **Task Scheduling:** Execute complex Python scripts or shell commands at defined intervals using a lightweight background daemon.
-*   **Workflow Orchestration:** Define multi-step automation chains via YAML configuration files, ensuring sequential task execution and error handling.
-*   **Dynamic Logging:** Real-time progress tracking with integrated console output and log-to-file capabilities for audit trails.
-*   **Environment Agnostic:** Optimized for cross-platform execution on Linux, macOS, and Windows with zero dependency bloat.
+* **Concurrent File Batching:** Processes large directory trees asynchronously using Python's `asyncio` to maximize I/O throughput.
+* **Declarative YAML Workflows:** Define execution chains, retries, and task dependencies in human-readable YAML configurations with strict schema validation.
+* **Safe Dry-Run Engine:** Simulates complex system operations and file modifications without applying changes, logging potential conflicts in advance.
 
 ## Installation
 
-Ensure you have Python 3.8+ installed. You can install the tool directly from source:
+Ensure you have Python 3.9 or higher installed. Clone the repository and install the package via `pip`:
 
 ```bash
 git clone https://github.com/Developer/automation-tool-79.git
 cd automation-tool-79
-python3 -m venv venv
-source venv/bin/activate
 pip install -r requirements.txt
+pip install .
 ```
 
-## Usage
+## Quick Start
 
-To run a pre-configured automation task, use the `run` command followed by the path to your config file:
+### Command Line Interface
+
+Validate and execute a local workflow configuration:
 
 ```bash
-# Execute a task configuration
-python main.py run --config configs/daily_backup.yaml
+# Perform a dry run to inspect operations
+automation-79 run --config examples/sync_job.yaml --dry-run
 
-# Run in background mode with verbose output
-python main.py run --config configs/daily_backup.yaml --daemon --verbose
+# Execute the workflow
+automation-79 run --config examples/sync_job.yaml
 ```
 
-## Contributing
-We welcome contributions via Pull Requests. Please ensure all new features include unit tests within the `tests/` directory before submission.
+### Python API
+
+Integrate the execution engine directly into your existing scripts:
+
+```python
+from automation_tool_79 import WorkflowEngine, LoadConfig
+
+# Load task definitions
+config = LoadConfig("examples/sync_job.yaml")
+
+# Initialize and execute engine
+engine = WorkflowEngine(config=config, verbose=True)
+results = engine.run()
+
+print(f"Task completed. Total files processed: {results.processed_count}")
+```
 
 ## License
-
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 Distributed under the MIT License. See `LICENSE` for more information.
