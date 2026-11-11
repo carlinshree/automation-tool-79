@@ -1,47 +1,56 @@
+import time
 import logging
-from typing import Any, Dict, List, Tuple
+import functools
+from typing import Callable, Any, Type, Tuple
 
-logger = logging.getLogger(__name__)
-
-
-def validate_payload(item: Dict[str, Any]) -> Tuple[bool, str]:
-    """Validate an individual item payload before processing."""
-    if not isinstance(item, dict):
-        return False, "Item must be a dictionary"
-    
-    if "id" not in item or not item["id"]:
-        return False, "Missing or empty 'id' field"
-    
-    if "task" not in item or not isinstance(item["task"], str):
-        return False, "Invalid or missing 'task' string"
-    
-    if "data" in item and not isinstance(item["data"], (dict, list)):
-        return False, "'data' field must be a dict or list"
-    
-    return True, ""
+logger = logging.getLogger("automation_tool")
 
 
-def process_queue(queue: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    """Process queue items with strict input validation in the main loop."""
-    summary: Dict[str, List[Dict[str, Any]]] = {"completed": [], "rejected": []}
+class NetworkError(Exception):
+    """Raised when network operation fails after maximum retries."""
+    pass
 
-    for item in queue:
-        is_valid, reason = validate_payload(item)
-        if not is_valid:
-            logger.warning("Rejecting invalid item: %s", reason)
-            summary["rejected"].append({"item": item, "reason": reason})
-            continue
 
-        try:
-            item_id = str(item["id"])
-            task = item["task"].strip().lower()
-            payload = item.get("data", {})
+def retry_on_failure(
+    retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
+) -> Callable:
+    """Decorator that retries network operations using exponential backoff."""
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_delay = delay
+            for attempt in range(1, retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as err:
+                    if attempt == retries:
+                        logger.error("Failed %s after %d retries: %s", func.__name__, retries, err)
+                        raise NetworkError(f"Operation failed after {retries} retries") from err
 
-            # Execute task payload handling
-            result = {"id": item_id, "task": task, "status": "executed", "payload": payload}
-            summary["completed"].append(result)
-        except Exception as err:
-            logger.error("Error executing task for item %s: %s", item.get("id"), err)
-            summary["rejected"].append({"item": item, "reason": str(err)})
+                    logger.warning(
+                        "Attempt %d/%d for %s failed with error: %s. Retrying in %.1fs...",
+                        attempt, retries, func.__name__, err, current_delay
+                    )
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-    return summary
+
+class NetworkHandler:
+    """Manages network requests with configurable retry logic."""
+
+    def __init__(self, max_retries: int = 3, initial_delay: float = 1.0):
+        self.max_retries = max_retries
+        self.initial_delay = initial_delay
+
+    def execute_request(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Executes a target network function wrapped with retry handling."""
+        decorated_func = retry_on_failure(
+            retries=self.max_retries,
+            delay=self.initial_delay
+        )(func)
+        return decorated_func(*args, **kwargs)
