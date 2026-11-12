@@ -1,57 +1,38 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import os
 
+# Application logging configuration
+LOG_FILE = "automation-tool.log"
+MAX_BYTES = 5 * 1024 * 1024  # 5MB
+BACKUP_COUNT = 3
 
-def setup_logger(
-    name: str = "automation_tool",
-    log_dir: str = "logs",
-    log_file: str = "app.log",
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-) -> logging.Logger:
-    """Configures and returns a logger with console and rotating file handlers."""
+def setup_logger(name: str = "automation-tool") -> logging.Logger:
+    """Initializes a rotating file logger for the application."""
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
 
-    # Prevent duplicate handlers if logger is already configured
-    if logger.handlers:
-        return logger
+    # Prevent duplicate handlers if re-initialized
+    if not logger.handlers:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
 
-    # Ensure log directory exists
-    log_path = Path(log_dir)
-    log_path.mkdir(parents=True, exist_ok=True)
-    full_log_path = log_path / log_file
+        # File rotation handler
+        handler = RotatingFileHandler(
+            LOG_FILE, 
+            maxBytes=MAX_BYTES, 
+            backup_count=BACKUP_COUNT
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
-    # Log message format
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - [%(levelname)s] - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # Rotating file handler
-    file_handler = RotatingFileHandler(
-        full_log_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(level)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+        # Optional: Console output for debugging
+        console = logging.StreamHandler()
+        console.setFormatter(formatter)
+        logger.addHandler(console)
 
     return logger
 
-
-if __name__ == "__main__":
-    app_logger = setup_logger()
-    app_logger.info("Logger setup complete.")
-    app_logger.warning("Test warning log entry.")
+# Exported instance for quick access
+logger = setup_logger()
