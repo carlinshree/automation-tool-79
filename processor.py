@@ -1,53 +1,44 @@
-"""Data processing utilities for automation pipelines."""
+import time
+import random
+import logging
+from functools import wraps
 
-from typing import Any, Dict, List, Optional
+logger = logging.getLogger(__name__)
 
+def retry_network_operation(max_attempts=3, delay=2, backoff=2):
+    """Decorator for retrying network operations with exponential backoff."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    if attempt == max_attempts:
+                        logger.error(f"Final attempt failed: {e}")
+                        raise
+                    
+                    sleep_time = current_delay + random.uniform(0, 1)
+                    logger.warning(f"Attempt {attempt} failed, retrying in {sleep_time:.2f}s...")
+                    time.sleep(sleep_time)
+                    current_delay *= backoff
+            return None
+        return wrapper
+    return decorator
 
-class BatchProcessor:
-    """Processes datasets in configurable batches with optional transformation."""
+@retry_network_operation(max_attempts=3)
+def fetch_data(url):
+    """Mock function representing a volatile network request."""
+    # Simulate network instability
+    if random.random() < 0.7:
+        raise ConnectionError("Server unreachable")
+    return {"status": "success", "url": url}
 
-    def __init__(self, batch_size: int = 100, drop_invalid: bool = True) -> None:
-        """Initialize the processor with batch size and validation settings."""
-        self.batch_size: int = max(1, batch_size)
-        self.drop_invalid: bool = drop_invalid
-        self.processed_count: int = 0
-        self.errors: List[Dict[str, Any]] = []
-
-    def validate_item(self, item: Dict[str, Any]) -> bool:
-        """Check if an item contains required structure and non-empty key fields."""
-        if not isinstance(item, dict):
-            return False
-        return bool(item.get("id") and "data" in item)
-
-    def process_batch(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Process a chunk of data items and collect error reports.
-
-        Args:
-            items: A list of record dictionaries to process.
-
-        Returns:
-            A list of successfully processed record dictionaries.
-        """
-        results: List[Dict[str, Any]] = []
-        for index, item in enumerate(items):
-            if not self.validate_item(item):
-                self.errors.append({"index": index, "item": item, "reason": "Validation failed"})
-                if self.drop_invalid:
-                    continue
-
-            transformed = self._transform_item(item)
-            results.append(transformed)
-            self.processed_count += 1
-
-        return results
-
-    def _transform_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """Apply internal transformations to a single item."""
-        cleaned = item.copy()
-        cleaned["processed"] = True
-        cleaned["status"] = str(cleaned.get("status", "pending")).upper()
-        return cleaned
-
-    def split_into_batches(self, items: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
-        """Split a large list into uniform batch sizes."""
-        return [items[i : i + self.batch_size] for i in range(0, len(items), self.batch_size)]
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    try:
+        result = fetch_data("https://api.example.com")
+        print(f"Result: {result}")
+    except Exception as e:
+        print(f"Operation failed after retries: {e}")
