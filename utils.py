@@ -1,35 +1,36 @@
-import json
-import os
-from typing import Any, Optional
+import time
+import random
+import functools
+from typing import Callable, Any
 
-def load_json_file(filepath: str) -> dict[str, Any]:
-    """Loads data from a json file with error handling."""
-    if not os.path.exists(filepath):
-        return {}
-    
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return {}
+def retry_with_backoff(retries: int = 3, backoff_in_seconds: float = 1.0):
+    """
+    Decorator to retry network operations with exponential backoff.
+    """
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            x = 0
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if x == retries:
+                        raise e
+                    
+                    sleep = (backoff_in_seconds * 2 ** x) + random.uniform(0, 1)
+                    time.sleep(sleep)
+                    x += 1
+        return wrapper
+    return decorator
 
-def save_json_file(filepath: str, data: dict[str, Any]) -> bool:
-    """Saves a dictionary to a json file."""
-    try:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
-        return True
-    except IOError:
-        return False
-
-def sanitize_dict(data: dict[str, Any]) -> dict[str, Any]:
-    """Removes null values from a dictionary."""
-    return {k: v for k, v in data.items() if v is not None}
-
-def format_data_size(size_bytes: int) -> str:
-    """Human readable string for byte sizes."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024:
-            return f"{size_bytes:.2f} {unit}"
-        size_bytes /= 1024
-    return f"{size_bytes:.2f} TB"
+@retry_with_backoff(retries=3, backoff_in_seconds=2.0)
+def network_request_mock(url: str):
+    """
+    Example function demonstrating retry logic for connectivity.
+    """
+    print(f"Attempting request to {url}")
+    # Simulate transient network failure
+    if random.random() < 0.7:
+        raise ConnectionError("Transient network error occurred")
+    return "Success"
