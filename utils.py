@@ -1,36 +1,35 @@
-import logging
+import json
 import os
 from typing import Any, Optional
 
-logger = logging.getLogger('automation-tool-79')
-
-def safe_file_read(filepath: str) -> Optional[str]:
-    """Reads content of a file with robust error handling for missing or inaccessible files."""
-    if not filepath or not isinstance(filepath, str):
-        logger.error(f"Invalid path provided: {filepath}")
-        return None
-
+def load_json_file(filepath: str) -> dict[str, Any]:
+    """Loads data from a json file with error handling."""
+    if not os.path.exists(filepath):
+        return {}
+    
     try:
-        if not os.path.exists(filepath):
-            logger.warning(f"File not found at {filepath}")
-            return None
-
         with open(filepath, 'r', encoding='utf-8') as f:
-            return f.read()
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
 
-    except PermissionError:
-        logger.error(f"Permission denied for file: {filepath}")
-    except OSError as e:
-        logger.error(f"System error reading {filepath}: {e}")
-    except Exception as e:
-        logger.critical(f"Unexpected error during read: {e}")
-
-    return None
-
-def validate_config_value(value: Any, expected_type: type) -> bool:
-    """Validates configuration inputs against type requirements."""
+def save_json_file(filepath: str, data: dict[str, Any]) -> bool:
+    """Saves a dictionary to a json file."""
     try:
-        return isinstance(value, expected_type) and value is not None
-    except TypeError:
-        logger.error("Invalid type reference passed to validator")
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+        return True
+    except IOError:
         return False
+
+def sanitize_dict(data: dict[str, Any]) -> dict[str, Any]:
+    """Removes null values from a dictionary."""
+    return {k: v for k, v in data.items() if v is not None}
+
+def format_data_size(size_bytes: int) -> str:
+    """Human readable string for byte sizes."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.2f} TB"
